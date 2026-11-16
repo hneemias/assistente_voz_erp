@@ -15,7 +15,22 @@ import { createAiProviders } from './config/ai-providers.ts';
 import { env } from './config/env.ts';
 import { createSessionUserData } from './services/context-manager.ts';
 import type { SessionUserData } from './types/session-types.ts';
+import http from 'node:http';
 import { createSessionLogger, logger } from './utils/logger.ts';
+
+// Silencia e intercepta a porta 8081 do LiveKit para que o Render nunca veja uma 2ª porta HTTP
+// no container (o que causa 'Detected a new open port HTTP:8081' e reinicia o serviço a cada 30s)
+const originalListen = http.Server.prototype.listen;
+http.Server.prototype.listen = function (this: any, ...args: any[]) {
+  const port = args[0];
+  if (port === 8081 || port === '8081') {
+    this.address = () => ({ port: 8081, address: '127.0.0.1', family: 'IPv4' });
+    const cb = args.find((a: any) => typeof a === 'function');
+    if (cb) setTimeout(() => cb.call(this), 0);
+    return this;
+  }
+  return originalListen.apply(this, args as any);
+};
 
 export default defineAgent({
   // Em containers com memória restrita (ex: Render 512MB), o VAD é carregado sob demanda
