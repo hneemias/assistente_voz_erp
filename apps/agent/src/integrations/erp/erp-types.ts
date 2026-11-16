@@ -40,6 +40,10 @@ export interface OrdemServicoResumo {
   numero_os: string;
   cliente_nome: string;
   veiculo_equipamento?: string;
+  equipamento?: string;
+  modelo?: string;
+  marca_equipamento?: string;
+  numero_serie?: string;
   status: StatusOS;
   data_abertura: string; // ISO-8601
   dias_aberta: number;
@@ -51,10 +55,79 @@ export interface OrdemServicoResumo {
 export interface OrdemServicoDetalhada extends OrdemServicoResumo {
   observacoes?: string;
   responsavel_tecnico?: string;
+  cpf_cnpj?: string;
+  endereco?: string;
+  laudo_tecnico?: string;
   produtos: ItemProdutoOS[];
   servicos: ItemServicoOS[];
   totais: TotaisOS;
   atualizado_em: string;
+}
+
+export interface RawErpItem {
+  seq: string;
+  codigo: string;
+  produtoServico: string;
+  referencia: string;
+  unidade: string;
+  marca: string;
+  valorUnitario: number;
+  quantidade: number;
+  desconto: number;
+  valorTotal: number;
+  infoAdicional: string;
+  colaborador: string;
+  qtdeEstoqueReservado: number;
+  localEstoque: string;
+}
+
+export interface RawErpCobranca {
+  formaPagamento: string;
+  vencimento: string;
+  valorParcela: number;
+  pagamento: string;
+  conta: string;
+}
+
+export interface RawErpServiceOrder {
+  numero: string;
+  tipo: string;
+  data: string;
+  cliente: string;
+  totalOS: number;
+  vendedor: string;
+  situacao: string;
+  id: string;
+  codigoCliente: string;
+  cpfCnpj: string;
+  inscEstadual: string;
+  endereco: string;
+  tipoEndereco: string;
+  grupo: string;
+  dataFinalizacao: string;
+  dataValidade: string;
+  observacao: string;
+  equipamento: string;
+  modelo: string;
+  marcaEquipamento: string;
+  nSerie: string;
+  acessorios: string;
+  obsLaudoTecnico: string;
+  observacaoInterna: string;
+  totalFrete: number;
+  itens: RawErpItem[];
+  cobrancas: RawErpCobranca[];
+}
+
+export interface RawErpPayload {
+  id: string;
+  type: string;
+  params: {
+    start: string;
+    end: string;
+  };
+  status: string;
+  result: RawErpServiceOrder[];
 }
 
 export interface ProdutoERP {

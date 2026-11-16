@@ -110,9 +110,15 @@ export async function executeConsultarOs(
     });
 
     const os = res.data;
+    const equipInfo =
+      os.veiculo_equipamento &&
+      os.veiculo_equipamento !== 'Geral' &&
+      os.veiculo_equipamento !== 'Equipamento não especificado'
+        ? ` referente a ${os.veiculo_equipamento}`
+        : '';
     return {
       status: 'SUCCESS',
-      messageForSpeech: `A OS ${os.numero_os} do cliente ${os.cliente_nome} está com status ${os.status.replace(/_/g, ' ')}, possui ${os.quantidade_itens} itens e valor total de ${os.valor_total.toFixed(2)} reais.`,
+      messageForSpeech: `A OS ${os.numero_os} do cliente ${os.cliente_nome}${equipInfo} está com status ${os.status.replace(/_/g, ' ')}, possui ${os.quantidade_itens} itens e valor total de ${os.valor_total.toFixed(2)} reais.`,
       data: os,
       erpMode: userData.erpClient.mode,
       activeOsNumber: userData.activeOsNumber,
@@ -180,16 +186,30 @@ export async function executeListarOsAbertas(
 
     const ordens = res.data;
     const somaTotal = ordens.reduce((acc, o) => acc + o.valor_total, 0);
-    const resumoLista =
-      ordens.length === 0
-        ? 'Nenhuma ordem de serviço em aberto encontrada com esses critérios.'
-        : `Foram encontradas ${ordens.length} ordens em aberto (soma total de ${somaTotal.toFixed(2)} reais): ` +
-          ordens
-            .map(
-              (o) =>
-                `OS ${o.numero_os} (${o.status.replace(/_/g, ' ')}, há ${o.dias_aberta} dias, total ${o.valor_total.toFixed(2)} reais)`,
-            )
-            .join('; ');
+    let resumoLista = '';
+    if (ordens.length === 0) {
+      resumoLista = 'Nenhuma ordem de serviço em aberto encontrada com esses critérios.';
+    } else if (ordens.length <= 5) {
+      resumoLista =
+        `Foram encontradas ${ordens.length} ordens em aberto (soma total de ${somaTotal.toFixed(2)} reais): ` +
+        ordens
+          .map(
+            (o) =>
+              `OS ${o.numero_os} do cliente ${o.cliente_nome} (${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais)`,
+          )
+          .join('; ');
+    } else {
+      const top5 = ordens.slice(0, 5);
+      resumoLista =
+        `Foram encontradas ${ordens.length} ordens em aberto totalizando ${somaTotal.toFixed(2)} reais. As 5 mais recentes são: ` +
+        top5
+          .map(
+            (o) =>
+              `OS ${o.numero_os} do cliente ${o.cliente_nome} (${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais)`,
+          )
+          .join('; ') +
+        `. E mais ${ordens.length - 5} ordens no sistema.`;
+    }
 
     return {
       status: 'SUCCESS',
@@ -330,9 +350,16 @@ export async function executeConsultarDetalhesOs(
     });
 
     const d = res.data;
+    const equipInfo =
+      d.veiculo_equipamento &&
+      d.veiculo_equipamento !== 'Geral' &&
+      d.veiculo_equipamento !== 'Equipamento não especificado'
+        ? `, referente a ${d.veiculo_equipamento}`
+        : '';
+    const obsSnippet = d.observacoes ? ` Observação: ${d.observacoes.split('\n')[0]}.` : '';
     return {
       status: 'SUCCESS',
-      messageForSpeech: `Detalhes da OS ${d.numero_os}: cliente ${d.cliente_nome}, status ${d.status.replace(/_/g, ' ')}, aberta há ${d.dias_aberta} dias. Possui ${d.produtos.length} produtos (${d.totais.total_produtos.toFixed(2)} reais) e ${d.servicos.length} serviços (${d.totais.total_servicos.toFixed(2)} reais), somando ${d.totais.valor_total.toFixed(2)} reais.`,
+      messageForSpeech: `Detalhes da OS ${d.numero_os}: cliente ${d.cliente_nome}${equipInfo}, status ${d.status.replace(/_/g, ' ')}, aberta há ${d.dias_aberta} dias.${obsSnippet} Possui ${d.produtos.length} produtos (${d.totais.total_produtos.toFixed(2)} reais) e ${d.servicos.length} serviços (${d.totais.total_servicos.toFixed(2)} reais), somando ${d.totais.valor_total.toFixed(2)} reais.`,
       data: d,
       erpMode: userData.erpClient.mode,
       activeOsNumber: userData.activeOsNumber,

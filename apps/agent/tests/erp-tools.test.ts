@@ -219,4 +219,68 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
     // OS 3030 permaneceu inalterada
     expect(mockStore.consultarOS('3030').status).toBe('em_andamento');
   });
+
+  describe('Cenários com Dados Reais da Assistência Técnica (Payload de Produção)', () => {
+    it('Consulta OS 4345 da cliente JEANE APARECIDA PIMENTA (Aberta, R$ 60,00)', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeConsultarOs({ numero_os: '4345' }, userData);
+
+      expect(res.status).toBe('SUCCESS');
+      const os = res.data as any;
+      expect(os.numero_os).toBe('4345');
+      expect(os.cliente_nome).toBe('JEANE APARECIDA PIMENTA');
+      expect(os.status).toBe('aberta');
+      expect(os.valor_total).toBe(60);
+      expect(userData.activeOsNumber).toBe('4345');
+    });
+
+    it('Consulta OS 4344 da RADIO NATIVA FM LTDA com equipamento IMPRESSORA EPSON L3250', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeConsultarOs({ numero_os: '4344' }, userData);
+
+      expect(res.status).toBe('SUCCESS');
+      const os = res.data as any;
+      expect(os.numero_os).toBe('4344');
+      expect(os.cliente_nome).toBe('RADIO NATIVA FM LTDA');
+      expect(os.equipamento).toBe('IMPRESSORA');
+      expect(os.modelo).toBe('L3250');
+      expect(os.marca_equipamento).toBe('EPSON');
+      expect(os.status).toBe('aberta');
+    });
+
+    it('Consulta OS 4340 concluída com impressora de etiquetas HAYOM e valor total R$ 710,00', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeConsultarOs({ numero_os: '4340' }, userData);
+
+      expect(res.status).toBe('SUCCESS');
+      const os = res.data as any;
+      expect(os.numero_os).toBe('4340');
+      expect(os.cliente_nome).toBe('HERINA DOS SANTOS BORGES');
+      expect(os.status).toBe('concluida');
+      expect(os.valor_total).toBe(710);
+      expect(os.quantidade_itens).toBe(2);
+    });
+
+    it('Busca produtos reais de informática (ex: EPSON L3250 ou KASPERSKY)', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const resEpson = await executeBuscarProdutoPorNome({ nome: 'L3250' }, userData);
+      expect(resEpson.status).toBe('SUCCESS');
+      expect(resEpson.messageForSpeech).toContain('EPSON');
+
+      const resKaspersky = await executeBuscarProdutoPorNome({ nome: 'Kaspersky' }, userData);
+      expect(resKaspersky.status).toBe('SUCCESS');
+      expect(resKaspersky.messageForSpeech).toContain('KASPERSKY');
+    });
+
+    it('Lista todas as ordens abertas reais da bancada', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeListarOsAbertas({}, userData);
+
+      expect(res.status).toBe('SUCCESS');
+      const data = res.data as any;
+      // Contém OS abertas reais
+      expect(data.quantidade).toBeGreaterThanOrEqual(16);
+      expect(data.valor_total_acumulado).toBeGreaterThan(0);
+    });
+  });
 });

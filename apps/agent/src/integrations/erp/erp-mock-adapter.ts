@@ -1,4 +1,5 @@
 import { ErpNotFoundError, ErpValidationError } from './erp-errors.ts';
+import realOrdersData from './mock-data/real-erp-orders.json' with { type: 'json' };
 import type {
   EstoqueProduto,
   FiltroOS,
@@ -13,12 +14,60 @@ import type {
   TotaisOS,
 } from './erp-types.ts';
 
-function normalizeText(value: string): string {
-  return value
+function normalizeText(value?: string | null): string {
+  if (!value) return '';
+  return String(value)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+}
+
+function parseBrazilianDate(dateStr: string): string {
+  if (!dateStr) return new Date().toISOString();
+  const parts = dateStr.trim().split(' ');
+  const dateParts = parts[0]?.split('/');
+  if (dateParts && dateParts.length === 3) {
+    const timePart = parts[1] || '00:00:00';
+    return `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}T${timePart}-03:00`;
+  }
+  return dateStr;
+}
+
+function parseBrazilianCurrency(val: string | number): number {
+  if (typeof val === 'number') return val;
+  if (!val) return 0;
+  const cleaned = String(val).replace(/\./g, '').replace(',', '.').trim();
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function calculateDaysOpen(dateStr: string, refDate = new Date('2026-11-16T15:00:00-03:00')): number {
+  const osDate = new Date(parseBrazilianDate(dateStr));
+  const diffTime = Math.max(0, refDate.getTime() - osDate.getTime());
+  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+}
+
+function mapSituationToStatus(situacao: string): StatusOS {
+  const norm = normalizeText(situacao);
+  if (norm.includes('concluid') || norm.includes('finaliz')) return 'concluida';
+  if (norm.includes('cancel')) return 'cancelada';
+  if (norm.includes('aguard')) return 'aguardando_pecas';
+  if (norm.includes('andamento')) return 'em_andamento';
+  return 'aberta';
+}
+
+function getCategoryForProduct(name: string): string {
+  const n = normalizeText(name);
+  if (n.includes('impressora')) return 'Impressoras';
+  if (n.includes('tinta') || n.includes('refil')) return 'Tintas e Suprimentos';
+  if (n.includes('notebook') || n.includes('fonte')) return 'Notebooks e Fontes';
+  if (n.includes('camera') || n.includes('vbox')) return 'Segurança e Redes';
+  if (n.includes('mouse') || n.includes('cooler') || n.includes('som')) return 'Periféricos';
+  if (n.includes('cartao') || n.includes('memoria') || n.includes('ssd')) return 'Armazenamento';
+  if (n.includes('cabo') || n.includes('plug')) return 'Cabos e Conectores';
+  if (n.includes('antivirus') || n.includes('licenca')) return 'Software';
+  return 'Geral';
 }
 
 export class ErpMockStore {
@@ -317,29 +366,137 @@ export class ErpMockStore {
         },
       ],
     }));
+
+    // Ingestão das 26 Ordens de Serviço reais extraídas do ERP de produção
+    for (const raw of realOrdersData.result) {
+      const osServicos: ItemServicoOS[] = [];
+      const osProdutos: ItemProdutoOS[] = [];
+
+      for (const it of raw.itens || []) {
+        const isService = /servico|analise|reset|formatac|limpeza/i.test(it.produtoServico);
+        if (isService) {
+          const srvId = `SRV-${it.codigo}`;
+          if (!this.servicos.has(srvId)) {
+            this.servicos.set(srvId, {
+              servico_id: srvId,
+              codigo: it.codigo,
+              descricao: it.produtoServico,
+              valor_padrao: it.valorUnitario,
+              tempo_estimado_minutos: 60,
+              ativo: true,
+            });
+          }
+          osServicos.push({
+            item_id: `ITEM-S-${raw.numero}-${it.seq}`,
+            servico_id: srvId,
+            codigo: it.codigo,
+            descricao: it.produtoServico,
+            quantidade: it.quantidade,
+            valor_unitario: it.valorUnitario,
+            subtotal: it.quantidade * it.valorUnitario,
+          });
+        } else {
+          const prodId = `PROD-${it.codigo}`;
+          if (!this.produtos.has(prodId)) {
+            this.produtos.set(prodId, {
+              produto_id: prodId,
+              codigo: it.codigo,
+              nome: it.produtoServico,
+              categoria: getCategoryForProduct(it.produtoServico),
+              marca: it.marca || undefined,
+              especificacao: it.referencia || undefined,
+              unidade: (it.unidade || 'UN') as any,
+              preco_venda: it.valorUnitario,
+              estoque_atual: 12,
+              estoque_minimo: 3,
+              ativo: true,
+            });
+          }
+          osProdutos.push({
+            item_id: `ITEM-P-${raw.numero}-${it.seq}`,
+            produto_id: prodId,
+            codigo: it.codigo,
+            nome: it.produtoServico,
+            unidade: it.unidade || 'UN',
+            quantidade: it.quantidade,
+            preco_unitario: it.valorUnitario,
+            subtotal: it.quantidade * it.valorUnitario,
+          });
+        }
+      }
+
+      const status = mapSituationToStatus(raw.situacao);
+      const dataAbertura = parseBrazilianDate(raw.data);
+      const diasAberta = calculateDaysOpen(raw.data);
+      const valorTotal =
+        parseBrazilianCurrency(raw.vendedor) ||
+        osProdutos.reduce((a, b) => a + b.subtotal, 0) + osServicos.reduce((a, b) => a + b.subtotal, 0);
+
+      const eq = [raw.equipamento, raw.marcaEquipamento, raw.modelo].filter(Boolean).join(' ');
+      const veiculoEquip = eq || (raw.observacao ? raw.observacao.split('\n')[0].substring(0, 40) : 'Equipamento não especificado');
+
+      this.ordens.set(
+        raw.numero,
+        this.buildOrdem({
+          numero_os: raw.numero,
+          cliente_nome: raw.cliente,
+          veiculo_equipamento: veiculoEquip,
+          equipamento: raw.equipamento || undefined,
+          modelo: raw.modelo || undefined,
+          marca_equipamento: raw.marcaEquipamento || undefined,
+          numero_serie: raw.nSerie || undefined,
+          status,
+          data_abertura: dataAbertura,
+          dias_aberta: diasAberta,
+          aguardando_produto: false,
+          observacoes:
+            [raw.observacao, raw.obsLaudoTecnico ? `Laudo: ${raw.obsLaudoTecnico}` : ''].filter(Boolean).join('\n') || undefined,
+          responsavel_tecnico: 'Inovar Assistência',
+          cpf_cnpj: raw.cpfCnpj || undefined,
+          endereco: raw.endereco || undefined,
+          laudo_tecnico: raw.obsLaudoTecnico || undefined,
+          produtos: osProdutos,
+          servicos: osServicos,
+          valor_total_override: valorTotal,
+        }),
+      );
+    }
   }
 
   private buildOrdem(params: {
     numero_os: string;
     cliente_nome: string;
     veiculo_equipamento?: string;
+    equipamento?: string;
+    modelo?: string;
+    marca_equipamento?: string;
+    numero_serie?: string;
     status: StatusOS;
     data_abertura: string;
     dias_aberta: number;
     aguardando_produto: boolean;
     observacoes?: string;
     responsavel_tecnico?: string;
+    cpf_cnpj?: string;
+    endereco?: string;
+    laudo_tecnico?: string;
     produtos: ItemProdutoOS[];
     servicos: ItemServicoOS[];
+    valor_total_override?: number;
   }): OrdemServicoDetalhada {
     const total_produtos = params.produtos.reduce((acc, p) => acc + p.subtotal, 0);
     const total_servicos = params.servicos.reduce((acc, s) => acc + s.subtotal, 0);
-    const valor_total = total_produtos + total_servicos;
+    const valor_total =
+      params.valor_total_override !== undefined ? params.valor_total_override : total_produtos + total_servicos;
 
     return {
       numero_os: params.numero_os,
       cliente_nome: params.cliente_nome,
       veiculo_equipamento: params.veiculo_equipamento,
+      equipamento: params.equipamento,
+      modelo: params.modelo,
+      marca_equipamento: params.marca_equipamento,
+      numero_serie: params.numero_serie,
       status: params.status,
       data_abertura: params.data_abertura,
       dias_aberta: params.dias_aberta,
@@ -348,6 +505,9 @@ export class ErpMockStore {
       quantidade_itens: params.produtos.length + params.servicos.length,
       observacoes: params.observacoes,
       responsavel_tecnico: params.responsavel_tecnico,
+      cpf_cnpj: params.cpf_cnpj,
+      endereco: params.endereco,
+      laudo_tecnico: params.laudo_tecnico,
       produtos: params.produtos,
       servicos: params.servicos,
       totais: {
@@ -385,6 +545,10 @@ export class ErpMockStore {
       numero_os: os.numero_os,
       cliente_nome: os.cliente_nome,
       veiculo_equipamento: os.veiculo_equipamento,
+      equipamento: os.equipamento,
+      modelo: os.modelo,
+      marca_equipamento: os.marca_equipamento,
+      numero_serie: os.numero_serie,
       status: os.status,
       data_abertura: os.data_abertura,
       dias_aberta: os.dias_aberta,

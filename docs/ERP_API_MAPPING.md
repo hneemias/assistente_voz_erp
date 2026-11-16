@@ -149,3 +149,67 @@ Quando você for conectar ao seu backend Express real:
 2. Ajuste o `pathTemplate` para coincidir com as suas rotas no Express (ex: se no seu ERP a rota for `/os/:id` em vez de `/ordens-servico/:numero_os`, basta alterar o template).
 3. Mude o campo `contractStatus` da operação de `'PENDING_CONTRACT'` para `'CONFIGURED'`.
 4. Defina no seu `.env`: `ERP_MODE=live` e `ERP_API_BASE_URL=http://seu-servidor-erp:porta/api`.
+
+---
+
+## 5. Payload Real de Produção Mapeado (Extraído da API Real)
+
+O assistente foi alimentado com o payload real extraído diretamente da API de produção do sistema (26 Ordens de Serviço reais do período de 10/11/2026 a 16/11/2026), persistido no mock store em [`apps/agent/src/integrations/erp/mock-data/real-erp-orders.json`](file:///d:/Install/Hneemias/projetos/inovar_assistente_voz/apps/agent/src/integrations/erp/mock-data/real-erp-orders.json).
+
+### 5.1. Estrutura do Envelope da API Real
+```json
+{
+  "id": "26a42bfc-0857-4038-b264-25ef8d250cdc",
+  "type": "SERVICE_ORDERS",
+  "params": {
+    "start": "10/11/2026",
+    "end": "16/11/2026"
+  },
+  "status": "COMPLETED",
+  "result": [
+    {
+      "numero": "4345",
+      "tipo": "OS",
+      "data": "16/11/2026 14:08:16",
+      "cliente": "JEANE APARECIDA PIMENTA",
+      "totalOS": 0,
+      "vendedor": "60,00",
+      "situacao": "Em aberto\n                                                Em aberto",
+      "id": "4398",
+      "codigoCliente": "1980",
+      "cpfCnpj": "01429364130",
+      "endereco": "RUA 16 QUADRA 08 LOTE 19, nº S/N, VALE DO SOL - Edéia, GO",
+      "observacao": "VERIFICAR PROBLEMA INTERNET\nJAENE\nRUA 16 N QD 08 LT 19 VALE DO SOL",
+      "equipamento": "",
+      "modelo": "",
+      "marcaEquipamento": "",
+      "nSerie": "",
+      "itens": [
+        {
+          "seq": "1",
+          "codigo": "663",
+          "produtoServico": "PRESTACAO DE SERVICOS",
+          "valorUnitario": 60,
+          "quantidade": 1
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 5.2. De-Para dos Campos do ERP Real para o Assistente
+
+| Campo do ERP Real | Campo no Assistente | Tratamento / Normalização | Exemplo Real |
+| :--- | :--- | :--- | :--- |
+| `numero` | `numero_os` | String limpa | `"4345"`, `"4344"`, `"4340"` |
+| `cliente` | `cliente_nome` | String limpa | `"JEANE APARECIDA PIMENTA"` |
+| `situacao` | `status` | Sanitização de quebras de linha e mapeamento | `"Em aberto\n Em aberto"` -> `'aberta'`, `"Concluido"` -> `'concluida'` |
+| `vendedor` | `valor_total` | Parsing monetário brasileiro (moeda BRL) | `"60,00"` -> `60.00`, `"1.831,00"` -> `1831.00` |
+| `data` | `data_abertura` | Parsing DD/MM/YYYY HH:mm:ss -> ISO-8601 | `"16/11/2026 14:08:16"` -> `"2026-11-16T14:08:16-03:00"` |
+| `equipamento` | `equipamento` | Tipo do equipamento | `"IMPRESSORA"`, `"NOTEBOOK"`, `"DESKTOP"` |
+| `modelo` | `modelo` | Modelo do aparelho | `"L3250"`, `"P112F"`, `"UNIQUE S2660"` |
+| `marcaEquipamento` | `marca_equipamento` | Fabricante | `"EPSON"`, `"DELL"`, `"HP"`, `"HAYOM"` |
+| `nSerie` | `numero_serie` | Número de série | `"XAAB493618"`, `"ST:4YPR244"` |
+| `observacao` | `observacoes` | Descrição do problema / defeito | Ex: `"VERIFICAR PROBLEMA INTERNET..."` |
+| `itens[].produtoServico` | `nome` / `descricao` | Classificação entre Produto e Serviço | `"PRESTACAO DE SERVICOS"` (SRV), `"LICENÇA ANTIVIRUS KASPERSKY"` (PROD) |
