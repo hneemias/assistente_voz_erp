@@ -413,6 +413,34 @@ export class ErpClient {
     });
   }
 
+  public async listarServicos(
+    options?: RequestExecutionOptions,
+  ): Promise<ErpOperationResult<ServicoERP[]>> {
+    const start = Date.now();
+    if (this.mode === 'mock') {
+      return this.wrapResult('listar_servicos', this.mockStore.buscarServicos(), start);
+    }
+    return this.executeHttp<ServicoERP[]>({
+      operation: 'listar_servicos',
+      options,
+    });
+  }
+
+  public async buscarServicoPorNome(
+    nome: string,
+    options?: RequestExecutionOptions,
+  ): Promise<ErpOperationResult<ServicoERP[]>> {
+    const start = Date.now();
+    if (this.mode === 'mock') {
+      return this.wrapResult('buscar_servico_por_nome', this.mockStore.buscarServicos(nome), start);
+    }
+    return this.executeHttp<ServicoERP[]>({
+      operation: 'buscar_servico_por_nome',
+      queryParams: { q: nome },
+      options,
+    });
+  }
+
   public async buscarServicosCatalogo(termo?: string): Promise<ServicoERP[]> {
     if (this.mode === 'mock') {
       return this.mockStore.buscarServicos(termo);

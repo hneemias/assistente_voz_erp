@@ -5,8 +5,11 @@ import { createSessionUserData, advanceUserTurn } from '../src/services/context-
 import {
   executeConsultarOs,
   executeListarOsAbertas,
+  executeListarTodasOs,
   executeListarProdutos,
   executeBuscarProdutoPorNome,
+  executeListarServicos,
+  executeBuscarServicoPorNome,
   executeConsultarEstoque,
   executeConsultarTotalOs,
   executeListarItensOs,
@@ -281,6 +284,58 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       // Contém OS abertas reais
       expect(data.quantidade).toBeGreaterThanOrEqual(16);
       expect(data.valor_total_acumulado).toBeGreaterThan(0);
+    });
+
+    it('Lista TODAS as 7 ordens da data de hoje (16/11/2026) sem omitir nenhuma', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeListarTodasOs({ apenas_hoje: true }, userData);
+
+      expect(res.status).toBe('SUCCESS');
+      const data = res.data as any;
+      expect(data.quantidade).toBe(7);
+      // Mensagem falada cita hoje e as ordens
+      expect(res.messageForSpeech).toContain('Hoje temos 7 ordens');
+      expect(res.messageForSpeech).toContain('4345');
+      expect(res.messageForSpeech).toContain('4344');
+      expect(res.messageForSpeech).toContain('4343');
+      expect(res.messageForSpeech).toContain('4342');
+      expect(res.messageForSpeech).toContain('4341');
+      expect(res.messageForSpeech).toContain('4340');
+      expect(res.messageForSpeech).toContain('4339');
+    });
+
+    it('Lista as ordens ABERTAS da data de hoje (3 ordens abertas)', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeListarOsAbertas({ apenas_hoje: true }, userData);
+
+      expect(res.status).toBe('SUCCESS');
+      const data = res.data as any;
+      expect(data.quantidade).toBe(3);
+      expect(res.messageForSpeech).toContain('Hoje temos 3 ordens');
+      expect(res.messageForSpeech).toContain('4345');
+      expect(res.messageForSpeech).toContain('4344');
+      expect(res.messageForSpeech).toContain('4343');
+    });
+
+    it('Lista os serviços cadastrados da assistência técnica', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeListarServicos({}, userData);
+
+      expect(res.status).toBe('SUCCESS');
+      const data = res.data as any;
+      expect(data.quantidade).toBeGreaterThanOrEqual(5);
+      expect(res.messageForSpeech).toContain('FORMATACAO');
+      expect(res.messageForSpeech).toContain('RESET');
+      expect(res.messageForSpeech).toContain('ANALISE TECNICA');
+    });
+
+    it('Busca serviço específico por nome falado (ex: "formatação")', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeBuscarServicoPorNome({ nome: 'formatacao' }, userData);
+
+      expect(res.status).toBe('SUCCESS');
+      expect(res.messageForSpeech).toContain('FORMATACAO DESKTOP');
+      expect(res.messageForSpeech).toContain('120');
     });
   });
 });

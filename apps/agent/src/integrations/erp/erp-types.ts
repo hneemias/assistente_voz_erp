@@ -172,6 +172,8 @@ export interface FiltroOS {
   apenas_nao_concluidas?: boolean;
   cliente?: string;
   limite?: number;
+  apenas_hoje?: boolean;
+  data?: string;
 }
 
 export interface FiltroProdutos {
@@ -191,6 +193,8 @@ export type ErpOperationName =
   | 'buscar_produto_por_nome'
   | 'consultar_produto_por_codigo'
   | 'consultar_estoque'
+  | 'listar_servicos'
+  | 'buscar_servico_por_nome'
   | 'consultar_total_os'
   | 'listar_itens_os'
   | 'alterar_status_os'

@@ -154,6 +154,16 @@ export const listarOsAbertasSchema = z.object({
     .optional()
     .describe('Se verdadeiro, retorna apenas ordens que estão aguardando peças/produtos.'),
   cliente: z.string().nullable().optional().describe('Filtro opcional por nome do cliente.'),
+  apenas_hoje: z
+    .boolean()
+    .nullable()
+    .optional()
+    .describe('Se verdadeiro, lista apenas ordens abertas na data de hoje.'),
+  data: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data específica para filtrar as ordens (ex: "hoje", "16/11/2026", "10/11/2026").'),
 });
 
 export async function executeListarOsAbertas(
@@ -168,6 +178,8 @@ export async function executeListarOsAbertas(
       aberta_ha_mais_de_dias: args.aberta_ha_mais_de_dias ?? undefined,
       aguardando_produto: args.aguardando_produto ?? undefined,
       cliente: args.cliente ?? undefined,
+      apenas_hoje: args.apenas_hoje ?? undefined,
+      data: args.data ?? undefined,
     };
     const res = await userData.erpClient.listarOSAbertas(filtros, { signal: abortSignal });
     const durationMs = Math.max(1, Date.now() - startTime);
@@ -186,29 +198,45 @@ export async function executeListarOsAbertas(
 
     const ordens = res.data;
     const somaTotal = ordens.reduce((acc, o) => acc + o.valor_total, 0);
+    const isToday = args.apenas_hoje || (args.data && args.data.toLowerCase().includes('hoje'));
     let resumoLista = '';
+
     if (ordens.length === 0) {
-      resumoLista = 'Nenhuma ordem de serviço em aberto encontrada com esses critérios.';
-    } else if (ordens.length <= 5) {
+      resumoLista = isToday
+        ? 'Nenhuma ordem de serviço em aberto foi encontrada para a data de hoje.'
+        : 'Nenhuma ordem de serviço em aberto encontrada com esses critérios.';
+    } else if (ordens.length <= 8) {
+      const prefix = isToday
+        ? `Hoje temos ${ordens.length} ordens de serviço em aberto: `
+        : `Foram encontradas ${ordens.length} ordens em aberto (soma de ${somaTotal.toFixed(2)} reais): `;
       resumoLista =
-        `Foram encontradas ${ordens.length} ordens em aberto (soma total de ${somaTotal.toFixed(2)} reais): ` +
+        prefix +
         ordens
-          .map(
-            (o) =>
-              `OS ${o.numero_os} do cliente ${o.cliente_nome} (${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais)`,
-          )
-          .join('; ');
+          .map((o) => {
+            const equip =
+              o.veiculo_equipamento &&
+              o.veiculo_equipamento !== 'Geral' &&
+              o.veiculo_equipamento !== 'Equipamento não especificado'
+                ? ` (${o.veiculo_equipamento})`
+                : '';
+            return `OS ${o.numero_os} de ${o.cliente_nome}${equip}, total ${o.valor_total.toFixed(2)} reais`;
+          })
+          .join('; ') +
+        '.';
     } else {
-      const top5 = ordens.slice(0, 5);
+      const top6 = ordens.slice(0, 6);
+      const prefix = isToday
+        ? `Hoje temos ${ordens.length} ordens em aberto totalizando ${somaTotal.toFixed(2)} reais. As 6 primeiras são: `
+        : `Foram encontradas ${ordens.length} ordens em aberto totalizando ${somaTotal.toFixed(2)} reais. As 6 mais recentes são: `;
       resumoLista =
-        `Foram encontradas ${ordens.length} ordens em aberto totalizando ${somaTotal.toFixed(2)} reais. As 5 mais recentes são: ` +
-        top5
+        prefix +
+        top6
           .map(
             (o) =>
               `OS ${o.numero_os} do cliente ${o.cliente_nome} (${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais)`,
           )
           .join('; ') +
-        `. E mais ${ordens.length - 5} ordens no sistema.`;
+        `. E mais ${ordens.length - 6} ordens no sistema.`;
     }
 
     return {
@@ -254,6 +282,16 @@ export const listarTodasOsSchema = z.object({
     .optional()
     .describe('Se verdadeiro, exclui ordens já concluídas ou canceladas.'),
   cliente: z.string().nullable().optional().describe('Filtro opcional por nome do cliente.'),
+  apenas_hoje: z
+    .boolean()
+    .nullable()
+    .optional()
+    .describe('Se verdadeiro, filtra apenas ordens com data de hoje.'),
+  data: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data específica para filtrar as ordens (ex: "hoje", "16/11/2026", "10/11/2026").'),
 });
 
 export async function executeListarTodasOs(
@@ -269,6 +307,8 @@ export async function executeListarTodasOs(
       aguardando_produto: args.aguardando_produto ?? undefined,
       apenas_nao_concluidas: args.apenas_nao_concluidas ?? undefined,
       cliente: args.cliente ?? undefined,
+      apenas_hoje: args.apenas_hoje ?? undefined,
+      data: args.data ?? undefined,
     };
     const res = await userData.erpClient.listarTodasOS(filtros, { signal: abortSignal });
     const durationMs = Math.max(1, Date.now() - startTime);
@@ -286,18 +326,49 @@ export async function executeListarTodasOs(
     });
 
     const ordens = res.data;
+    const somaTotal = ordens.reduce((acc, o) => acc + o.valor_total, 0);
+    const isToday = args.apenas_hoje || (args.data && args.data.toLowerCase().includes('hoje'));
+    let resumoLista = '';
+
+    if (ordens.length === 0) {
+      resumoLista = isToday
+        ? 'Nenhuma ordem de serviço foi encontrada para a data de hoje.'
+        : 'Nenhuma ordem de serviço encontrada.';
+    } else if (ordens.length <= 8) {
+      const prefix = isToday ? `Hoje temos ${ordens.length} ordens de serviço: ` : `Total de ${ordens.length} ordens encontradas: `;
+      resumoLista =
+        prefix +
+        ordens
+          .map((o) => {
+            const equip =
+              o.veiculo_equipamento &&
+              o.veiculo_equipamento !== 'Geral' &&
+              o.veiculo_equipamento !== 'Equipamento não especificado'
+                ? ` (${o.veiculo_equipamento})`
+                : '';
+            return `OS ${o.numero_os} de ${o.cliente_nome}${equip}, status ${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais`;
+          })
+          .join('; ') +
+        '.';
+    } else {
+      const top6 = ordens.slice(0, 6);
+      const prefix = isToday
+        ? `Hoje temos ${ordens.length} ordens somando ${somaTotal.toFixed(2)} reais. As 6 primeiras são: `
+        : `Total de ${ordens.length} ordens encontradas somando ${somaTotal.toFixed(2)} reais. As 6 mais recentes são: `;
+      resumoLista =
+        prefix +
+        top6
+          .map(
+            (o) =>
+              `OS ${o.numero_os} (${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais)`,
+          )
+          .join('; ') +
+        `. E mais ${ordens.length - 6} ordens.`;
+    }
+
     return {
       status: 'SUCCESS',
-      messageForSpeech:
-        ordens.length === 0
-          ? 'Nenhuma ordem de serviço encontrada.'
-          : `Total de ${ordens.length} ordens encontradas: ` +
-            ordens
-              .map(
-                (o) =>
-                  `OS ${o.numero_os} (${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais)`,
-              )
-              .join('; '),
+      messageForSpeech: resumoLista,
       data: { quantidade: ordens.length, ordens },
       erpMode: userData.erpClient.mode,
       activeOsNumber: userData.activeOsNumber,
@@ -424,18 +495,26 @@ export async function executeListarProdutos(
     });
 
     const prods = res.data;
+    let messageForSpeech = '';
+    if (prods.length === 0) {
+      messageForSpeech = 'Nenhum produto encontrado com esses filtros.';
+    } else if (!args.categoria && !args.busca && prods.length > 8) {
+      messageForSpeech =
+        `Temos ${prods.length} produtos cadastrados. As principais categorias são: Impressoras (Epson L3250 e Hayom de Etiquetas), Tintas Epson 544, Fontes de notebook Dell, Câmeras e Redes Intelbras, Periféricos (mouses e caixas de som) e Licenças Antivírus Kaspersky. Você pode me pedir detalhes de qualquer item ou consultar o estoque.`;
+    } else {
+      messageForSpeech =
+        `Encontrados ${prods.length} produtos: ` +
+        prods
+          .map(
+            (p) =>
+              `código ${p.codigo} - ${p.nome} (${p.preco_venda.toFixed(2)} reais/${p.unidade}, estoque: ${p.estoque_atual})`,
+          )
+          .join('; ');
+    }
+
     return {
       status: 'SUCCESS',
-      messageForSpeech:
-        prods.length === 0
-          ? 'Nenhum produto encontrado com esses filtros.'
-          : `Encontrados ${prods.length} produtos: ` +
-            prods
-              .map(
-                (p) =>
-                  `código ${p.codigo} - ${p.nome} (${p.preco_venda.toFixed(2)} reais/${p.unidade}, estoque: ${p.estoque_atual})`,
-              )
-              .join('; '),
+      messageForSpeech,
       data: { quantidade: prods.length, produtos: prods },
       erpMode: userData.erpClient.mode,
       activeOsNumber: userData.activeOsNumber,
@@ -448,6 +527,118 @@ export async function executeListarProdutos(
       userData,
       startTime,
     );
+  }
+}
+
+// ============================================================================
+// 5.1. listar_servicos(busca)
+// ============================================================================
+export const listarServicosSchema = z.object({
+  busca: z.string().nullable().optional().describe('Termo opcional de busca para filtrar serviços.'),
+});
+
+export async function executeListarServicos(
+  args: z.infer<typeof listarServicosSchema>,
+  userData: SessionUserData,
+  abortSignal?: AbortSignal,
+): Promise<ToolResponse> {
+  const startTime = Date.now();
+  try {
+    const res = args.busca
+      ? await userData.erpClient.buscarServicoPorNome(args.busca, { signal: abortSignal })
+      : await userData.erpClient.listarServicos({ signal: abortSignal });
+    const durationMs = Math.max(1, Date.now() - startTime);
+
+    metrics.recordToolCall({ toolName: 'listar_servicos', durationMs, outcome: 'SUCCESS' });
+    logToolAudit({
+      sessionId: userData.sessionId,
+      userId: userData.userId,
+      intent: 'listar_servicos_catalogo',
+      toolName: 'listar_servicos',
+      durationMs,
+      httpStatus: res.metadata.httpStatus,
+      operationResult: 'SUCCESS',
+      erpMode: userData.erpClient.mode,
+    });
+
+    const servicos = res.data.filter((s) => !s.codigo.startsWith('S0'));
+    const servicosLista = servicos.length > 0 ? servicos : res.data;
+    const resumo =
+      servicosLista.length === 0
+        ? 'Nenhum serviço encontrado com esse termo.'
+        : `Temos ${servicosLista.length} serviços cadastrados na assistência: ` +
+          servicosLista
+            .map((s) => `código ${s.codigo} - ${s.descricao} (${s.valor_padrao.toFixed(2)} reais)`)
+            .join('; ');
+
+    return {
+      status: 'SUCCESS',
+      messageForSpeech: resumo,
+      data: { quantidade: servicosLista.length, servicos: servicosLista },
+      erpMode: userData.erpClient.mode,
+      activeOsNumber: userData.activeOsNumber,
+    };
+  } catch (err) {
+    return handleQueryError(err, 'listar_servicos', 'listar_servicos_catalogo', userData, startTime);
+  }
+}
+
+// ============================================================================
+// 5.2. buscar_servico_por_nome(nome)
+// ============================================================================
+export const buscarServicoPorNomeSchema = z.object({
+  nome: z
+    .string()
+    .min(1)
+    .describe('Nome ou descrição falada do serviço (ex: "formatação", "limpeza", "reset", "análise").'),
+});
+
+export async function executeBuscarServicoPorNome(
+  args: z.infer<typeof buscarServicoPorNomeSchema>,
+  userData: SessionUserData,
+  abortSignal?: AbortSignal,
+): Promise<ToolResponse> {
+  const startTime = Date.now();
+  try {
+    const res = await userData.erpClient.buscarServicoPorNome(args.nome, { signal: abortSignal });
+    const durationMs = Math.max(1, Date.now() - startTime);
+
+    metrics.recordToolCall({ toolName: 'buscar_servico_por_nome', durationMs, outcome: 'SUCCESS' });
+    logToolAudit({
+      sessionId: userData.sessionId,
+      userId: userData.userId,
+      intent: 'buscar_servico_por_nome',
+      toolName: 'buscar_servico_por_nome',
+      durationMs,
+      httpStatus: res.metadata.httpStatus,
+      operationResult: 'SUCCESS',
+      erpMode: userData.erpClient.mode,
+    });
+
+    const srvs = res.data;
+    if (srvs.length === 0) {
+      return {
+        status: 'NOT_FOUND',
+        messageForSpeech: `Nenhum serviço encontrado com o nome '${args.nome}'.`,
+        data: { quantidade: 0, servicos: [] },
+        erpMode: userData.erpClient.mode,
+        activeOsNumber: userData.activeOsNumber,
+      };
+    }
+
+    return {
+      status: srvs.length > 1 ? 'AMBIGUOUS' : 'SUCCESS',
+      messageForSpeech:
+        srvs.length === 1
+          ? `Serviço encontrado: código ${srvs[0]!.codigo} - ${srvs[0]!.descricao}, valor padrão de ${srvs[0]!.valor_padrao.toFixed(2)} reais.`
+          : `Foram encontrados ${srvs.length} serviços compatíveis: ` +
+            srvs.map((s) => `código ${s.codigo} (${s.descricao}, ${s.valor_padrao.toFixed(2)} reais)`).join('; '),
+      data: { quantidade: srvs.length, servicos: srvs },
+      erpMode: userData.erpClient.mode,
+      activeOsNumber: userData.activeOsNumber,
+    };
+  } catch (err) {
+    return handleQueryError(err, 'buscar_servico_por_nome', 'buscar_servico_por_nome', userData, startTime);
   }
 }
 
@@ -821,6 +1012,22 @@ export function createQueryTools() {
       parameters: listarProdutosSchema,
       execute: async (args, { ctx, abortSignal }: llm.ToolOptions<SessionUserData>) =>
         executeListarProdutos(args, ctx.userData, abortSignal),
+    }),
+    llm.tool({
+      name: 'listar_servicos',
+      description:
+        'Lista todos os serviços oferecidos pela assistência técnica (ex: Formatação, Limpeza Interna, Reset de Impressora, Análise Técnica, Prestação de Serviços) com seus códigos e valores.',
+      parameters: listarServicosSchema,
+      execute: async (args, { ctx, abortSignal }: llm.ToolOptions<SessionUserData>) =>
+        executeListarServicos(args, ctx.userData, abortSignal),
+    }),
+    llm.tool({
+      name: 'buscar_servico_por_nome',
+      description:
+        'Busca serviços da assistência técnica pelo nome falado (ex: "formatação", "limpeza", "reset", "análise"). Retorna código e valor padrão.',
+      parameters: buscarServicoPorNomeSchema,
+      execute: async (args, { ctx, abortSignal }: llm.ToolOptions<SessionUserData>) =>
+        executeBuscarServicoPorNome(args, ctx.userData, abortSignal),
     }),
     llm.tool({
       name: 'buscar_produto_por_nome',

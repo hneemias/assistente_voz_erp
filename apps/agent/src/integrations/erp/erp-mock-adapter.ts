@@ -42,6 +42,29 @@ function parseBrazilianCurrency(val: string | number): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
+function matchesDateFilter(dataAberturaIso: string, dateFilter: string): boolean {
+  const norm = normalizeText(dateFilter);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (norm === 'hoje' || norm === 'data de hoje') {
+    return dataAberturaIso.slice(0, 10) === todayIso || dataAberturaIso.includes('2026-11-16');
+  }
+  const clean = dateFilter.replace(/[\/\.]/g, '-').trim();
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    if (parts[0]!.length === 4) {
+      return dataAberturaIso.slice(0, 10) === clean;
+    } else {
+      const formatted = `${parts[2]}-${parts[1]!.padStart(2, '0')}-${parts[0]!.padStart(2, '0')}`;
+      return dataAberturaIso.slice(0, 10) === formatted;
+    }
+  }
+  if (parts.length === 2) {
+    const formatted = `2026-${parts[1]!.padStart(2, '0')}-${parts[0]!.padStart(2, '0')}`;
+    return dataAberturaIso.slice(0, 10) === formatted;
+  }
+  return dataAberturaIso.includes(clean);
+}
+
 function calculateDaysOpen(dateStr: string, refDate = new Date('2026-11-16T15:00:00-03:00')): number {
   const osDate = new Date(parseBrazilianDate(dateStr));
   const diffTime = Math.max(0, refDate.getTime() - osDate.getTime());
@@ -591,7 +614,7 @@ export class ErpMockStore {
     filtros?: FiltroOS,
   ): OrdemServicoDetalhada[] {
     if (!filtros) return lista;
-    return lista.filter((os) => {
+    const filtered = lista.filter((os) => {
       if (filtros.status && os.status !== filtros.status) return false;
       if (
         filtros.aberta_ha_mais_de_dias !== undefined &&
@@ -617,8 +640,19 @@ export class ErpMockStore {
       ) {
         return false;
       }
+      if (filtros.apenas_hoje && !matchesDateFilter(os.data_abertura, 'hoje')) {
+        return false;
+      }
+      if (filtros.data && !matchesDateFilter(os.data_abertura, filtros.data)) {
+        return false;
+      }
       return true;
     });
+
+    if (filtros.limite && filtros.limite > 0) {
+      return filtered.slice(0, filtros.limite);
+    }
+    return filtered;
   }
 
   public listarProdutos(filtros?: FiltroProdutos): ProdutoERP[] {
