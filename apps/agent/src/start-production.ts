@@ -3,28 +3,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from './config/env.ts';
 
+// 1. Inicializa o servidor Express (Web Frontend + APIs) diretamente neste processo principal
+// para eliminar um processo Node/tsx inteiro e economizar ~150MB de memória RAM
+import './server.ts';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-console.log('[Production Runner] Iniciando Servidor HTTP de Tokens, Frontend e Métricas...');
-const serverProc = spawn('npx', ['tsx', path.join(__dirname, 'server.ts')], {
-  stdio: 'inherit',
-  shell: true,
-  env: process.env,
-});
-
-serverProc.on('error', (err) => {
-  console.error('[Production Runner] Erro crítico no servidor Express:', err);
-});
-
-serverProc.on('exit', (code) => {
-  if (code !== 0 && code !== null) {
-    console.error(`[Production Runner] Servidor Express finalizou inesperadamente com código ${code}`);
-  }
-});
 
 let agentProc: any = null;
 
-// Verifica se há credenciais válidas do LiveKit para inicializar o worker
+// Verifica se há credenciais válidas do LiveKit para inicializar o worker de voz
 const hasValidLiveKit =
   Boolean(env.LIVEKIT_API_KEY) &&
   env.LIVEKIT_API_KEY !== 'devkey' &&
@@ -42,11 +29,14 @@ if (!hasValidLiveKit) {
     '   O Servidor HTTP e a Interface Web continuarão ativos normalmente para atender o Render.\n',
   );
 } else {
-  console.log('[Production Runner] Credenciais do LiveKit detectadas. Iniciando Worker do Agente...');
+  console.log('[Production Runner] Credenciais do LiveKit detectadas. Iniciando Worker do Agente de Voz...');
   agentProc = spawn('npx', ['tsx', path.join(__dirname, 'main.ts'), 'start'], {
     stdio: 'inherit',
     shell: true,
-    env: process.env,
+    env: {
+      ...process.env,
+      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --max-old-space-size=256`,
+    },
   });
 
   agentProc.on('error', (err: any) => {
@@ -61,8 +51,7 @@ if (!hasValidLiveKit) {
 }
 
 const handleTermination = (signal: string) => {
-  console.log(`[Production Runner] Recebido sinal ${signal}, finalizando processos filhos...`);
-  serverProc.kill();
+  console.log(`[Production Runner] Recebido sinal ${signal}, finalizando processos...`);
   if (agentProc) {
     agentProc.kill();
   }

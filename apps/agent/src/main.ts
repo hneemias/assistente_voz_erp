@@ -102,6 +102,9 @@ if (process.env.VITEST === undefined) {
   cli.runApp(
     new ServerOptions({
       agent: fileURLToPath(import.meta.url),
+      // Evita que o LiveKit pré-aloque múltiplos processos ociosos na nuvem,
+      // mantendo o consumo de memória bem abaixo do limite de 512MB do Render Free
+      numIdleProcesses: 0,
     }),
   );
 }
