@@ -1,18 +1,48 @@
-import { spawn } from 'node:child_process';
+import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { env } from './config/env.ts';
 
-// 1. Inicializa o servidor Express (Web Frontend + APIs) diretamente neste processo principal
-// para eliminar um processo Node/tsx inteiro e economizar ~150MB de memória RAM
+// 1. Silencia e intercepta a porta 8081 do LiveKit para que o Render nunca veja uma 2ª porta HTTP
+// no container (o que causaria 'Detected a new open port HTTP:8081' e reiniciaria o container a cada 30s)
+const originalListen = http.Server.prototype.listen;
+const originalClose = http.Server.prototype.close;
+
+http.Server.prototype.listen = function (this: any, ...args: any[]) {
+  const port = args[0];
+  if (port === 8081 || port === '8081') {
+    this.__isMock8081 = true;
+    this.address = () => ({ port: 8081, address: '127.0.0.1', family: 'IPv4' });
+    const cb = args.find((a: any) => typeof a === 'function');
+    if (cb) setTimeout(() => cb.call(this), 0);
+    return this;
+  }
+  return originalListen.apply(this, args as any);
+};
+
+http.Server.prototype.close = function (this: any, cb?: (err?: Error) => void) {
+  if (this.__isMock8081) {
+    if (cb) setTimeout(cb, 0);
+    return this;
+  }
+  return originalClose.apply(this, arguments as any);
+};
+
+// 2. Desativa o executor de inferência local do LiveKit.
+// No Render (512MB RAM), desativar o subprocesso de inferência local economiza ~150MB de RAM.
+// Toda a inferência de IA (LLM, STT, TTS) já é realizada via LiveKit Cloud / APIs remotas.
+import { AgentServer, InferenceRunner, ServerOptions, initializeLogger } from '@livekit/agents';
+InferenceRunner.registerRunner = () => {};
+
+// 3. Inicializa o servidor Express (Web Frontend + APIs de Token e Métricas)
 import './server.ts';
+import { env } from './config/env.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-let agentProc: any = null;
+let livekitServer: AgentServer | null = null;
 
-// Verifica se há credenciais válidas do LiveKit para inicializar o worker de voz
+// 4. Verifica se há credenciais válidas do LiveKit para inicializar o worker de voz
 const hasValidLiveKit =
   Boolean(env.LIVEKIT_API_KEY) &&
   env.LIVEKIT_API_KEY !== 'devkey' &&
@@ -31,38 +61,50 @@ if (!hasValidLiveKit) {
   );
 } else {
   console.log('[Production Runner] Credenciais do LiveKit detectadas. Iniciando Worker do Agente de Voz...');
+
+  initializeLogger({ pretty: false, level: (env.LOG_LEVEL as any) || 'info' });
+
   const mainJsPath = path.join(__dirname, 'main.js');
   const mainTsPath = path.join(__dirname, 'main.ts');
-  const hasCompiledJs = fs.existsSync(mainJsPath);
+  const mainFile = fs.existsSync(mainJsPath) ? mainJsPath : mainTsPath;
 
-  const mainFile = hasCompiledJs ? mainJsPath : mainTsPath;
-  const runnerArgs = hasCompiledJs
-    ? [mainFile, 'start']
-    : [path.resolve(process.cwd(), 'node_modules/tsx/dist/cli.mjs'), mainFile, 'start'];
-
-  agentProc = spawn(process.execPath, runnerArgs, {
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --max-old-space-size=256`,
-    },
+  const serverOptions = new ServerOptions({
+    agent: mainFile,
+    numIdleProcesses: 0,
+    initializeProcessTimeout: 60 * 1000,
+    host: '127.0.0.1',
+    port: 8081,
+    production: true,
+    wsURL: env.LIVEKIT_URL,
+    apiKey: env.LIVEKIT_API_KEY,
+    apiSecret: env.LIVEKIT_API_SECRET,
+    agentName: env.LIVEKIT_AGENT_NAME,
+    jobMemoryWarnMB: 300,
+    jobMemoryLimitMB: 450,
   });
 
-  agentProc.on('error', (err: any) => {
+  livekitServer = new AgentServer(serverOptions);
+
+  livekitServer.event.on('worker_registered', () => {
+    const mem = process.memoryUsage();
+    console.log(
+      `[Production Runner] ✅ Worker LiveKit registrado com sucesso na Cloud! (Consumo de RAM atual: ${Math.round(mem.rss / 1024 / 1024)}MB)`,
+    );
+  });
+
+  livekitServer.run().catch((err: any) => {
     console.error('[Production Runner] Erro no worker LiveKit:', err);
-  });
-
-  agentProc.on('exit', (code: number | null) => {
-    if (code !== 0 && code !== null) {
-      console.warn(`[Production Runner] Worker LiveKit finalizou com código ${code}. O servidor HTTP segue ativo.`);
-    }
   });
 }
 
-const handleTermination = (signal: string) => {
-  console.log(`[Production Runner] Recebido sinal ${signal}, finalizando processos...`);
-  if (agentProc) {
-    agentProc.kill();
+const handleTermination = async (signal: string) => {
+  console.log(`[Production Runner] Recebido sinal ${signal}, finalizando com segurança...`);
+  if (livekitServer) {
+    try {
+      await livekitServer.close();
+    } catch (err) {
+      console.warn('[Production Runner] Aviso ao fechar LiveKit server:', err);
+    }
   }
   process.exit(0);
 };

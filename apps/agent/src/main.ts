@@ -1,6 +1,7 @@
 import {
   type JobContext,
   type JobProcess,
+  InferenceRunner,
   ServerOptions,
   cli,
   defineAgent,
@@ -18,12 +19,14 @@ import type { SessionUserData } from './types/session-types.ts';
 import http from 'node:http';
 import { createSessionLogger, logger } from './utils/logger.ts';
 
-// Silencia e intercepta a porta 8081 do LiveKit para que o Render nunca veja uma 2ª porta HTTP
-// no container (o que causa 'Detected a new open port HTTP:8081' e reinicia o serviço a cada 30s)
+// 1. Silencia e intercepta a porta 8081 do LiveKit para que o Render nunca veja uma 2ª porta HTTP
 const originalListen = http.Server.prototype.listen;
+const originalClose = http.Server.prototype.close;
+
 http.Server.prototype.listen = function (this: any, ...args: any[]) {
   const port = args[0];
   if (port === 8081 || port === '8081') {
+    this.__isMock8081 = true;
     this.address = () => ({ port: 8081, address: '127.0.0.1', family: 'IPv4' });
     const cb = args.find((a: any) => typeof a === 'function');
     if (cb) setTimeout(() => cb.call(this), 0);
@@ -31,6 +34,17 @@ http.Server.prototype.listen = function (this: any, ...args: any[]) {
   }
   return originalListen.apply(this, args as any);
 };
+
+http.Server.prototype.close = function (this: any, cb?: (err?: Error) => void) {
+  if (this.__isMock8081) {
+    if (cb) setTimeout(cb, 0);
+    return this;
+  }
+  return originalClose.apply(this, arguments as any);
+};
+
+// 2. Desativa o executor de inferência local para economizar memória (usamos cloud inference)
+InferenceRunner.registerRunner = () => {};
 
 export default defineAgent({
   // Em containers com memória restrita (ex: Render 512MB), o VAD é carregado sob demanda
@@ -129,8 +143,8 @@ if (process.env.VITEST === undefined && isMainScript && !process.send) {
       // Escuta apenas em loopback para não competir com a porta pública 10000 do Render
       host: '127.0.0.1',
       port: 8081,
-      jobMemoryWarnMB: 200,
-      jobMemoryLimitMB: 350,
+      jobMemoryWarnMB: 300,
+      jobMemoryLimitMB: 450,
     }),
   );
 }
