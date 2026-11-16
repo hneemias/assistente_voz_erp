@@ -42,9 +42,9 @@ const envSchema = z.object({
     .enum(['livekit-inference', 'cartesia', 'elevenlabs', 'google', 'openai'])
     .default('livekit-inference'),
   TTS_API_KEY: z.string().default(''),
-  TTS_MODEL: z.string().default('assemblyai/assemblyai-tts-1'),
-  TTS_VOICE: z.string().default(''),
-  TTS_LANGUAGE: z.string().default('pt'),
+  TTS_MODEL: z.string().default('inworld/inworld-tts-2'),
+  TTS_VOICE: z.string().default('Heitor'), // Voz nativa brasileira: Heitor (pt-BR)
+  TTS_LANGUAGE: z.string().default('pt-BR'),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

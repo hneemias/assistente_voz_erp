@@ -124,11 +124,11 @@ export function createTtsProvider(config: AppEnv = env): tts.TTS {
 
     case 'livekit-inference':
     default: {
-      const modelName = config.TTS_MODEL || 'assemblyai/assemblyai-tts-1';
+      const modelName = config.TTS_MODEL || 'inworld/inworld-tts-2';
       return new inference.TTS({
         model: modelName as any,
-        voice: config.TTS_VOICE || undefined,
-        language: (config.TTS_LANGUAGE || 'pt') as any,
+        voice: config.TTS_VOICE || 'Heitor',
+        language: (config.TTS_LANGUAGE || 'pt-BR') as any,
       });
     }
   }
