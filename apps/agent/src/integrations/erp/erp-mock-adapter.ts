@@ -1000,40 +1000,6 @@ export class ErpMockStore {
     throw new ErpNotFoundError('editar_item_os', `Item '${itemIdOuNomeOuCodigo}' na OS ${numeroOs}`);
   }
 
-  public alterarValorTotalOS(
-    numeroOs: string,
-    params: {
-      novoValorTotal?: number;
-      desconto?: number;
-    },
-  ): { totais: TotaisOS } {
-    const os = this.ordens.get(String(numeroOs).trim());
-    if (!os) {
-      throw new ErpNotFoundError('alterar_valor_total_os', `Ordem de Serviço ${numeroOs}`);
-    }
-
-    if (params.desconto !== undefined && params.desconto >= 0) {
-      os.totais.desconto = params.desconto;
-    }
-    if (params.novoValorTotal !== undefined && params.novoValorTotal >= 0) {
-      const somaItens = os.totais.total_produtos + os.totais.total_servicos;
-      if (params.novoValorTotal < somaItens) {
-        os.totais.desconto = Math.round((somaItens - params.novoValorTotal) * 100) / 100;
-      } else {
-        os.totais.desconto = 0;
-      }
-      os.totais.valor_total = params.novoValorTotal;
-      os.valor_total = params.novoValorTotal;
-    } else {
-      this.recalculateOrdem(os);
-    }
-    os.atualizado_em = new Date().toISOString();
-
-    return {
-      totais: structuredClone(os.totais),
-    };
-  }
-
   public removerServicoOS(
     numeroOs: string,
     itemIdOuServicoId: string,

@@ -209,14 +209,4 @@ export const ERP_ENDPOINTS_CONFIG: Record<ErpOperationName, ErpEndpointDefinitio
     contractStatus: 'PENDING_CONTRACT',
     description: 'Edita a quantidade e/ou o valor unitário de um produto ou serviço na OS.',
   },
-  alterar_valor_total_os: {
-    operation: 'alterar_valor_total_os',
-    method: 'PATCH',
-    pathTemplate: '/ordens-servico/:numero_os/valores',
-    isMutation: true,
-    supportsIdempotencyKey: true,
-    timeoutMs: 8000,
-    contractStatus: 'PENDING_CONTRACT',
-    description: 'Altera o valor total ou desconto de uma Ordem de Serviço.',
-  },
 };

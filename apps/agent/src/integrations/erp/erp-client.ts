@@ -601,32 +601,6 @@ export class ErpClient {
       options,
     });
   }
-
-  public async alterarValorTotalOS(
-    numeroOs: string,
-    params: {
-      novoValorTotal?: number;
-      desconto?: number;
-    },
-    options?: RequestExecutionOptions,
-  ): Promise<ErpOperationResult<{ totais: TotaisOS }>> {
-    const start = Date.now();
-    if (this.mode === 'mock') {
-      return this.wrapResult(
-        'alterar_valor_total_os',
-        this.mockStore.alterarValorTotalOS(numeroOs, params),
-        start,
-        200,
-        options?.idempotencyKey,
-      );
-    }
-    return this.executeHttp<{ totais: TotaisOS }>({
-      operation: 'alterar_valor_total_os',
-      pathParams: { numero_os: numeroOs },
-      body: params,
-      options,
-    });
-  }
 }
 
 export const defaultErpClient = new ErpClient();

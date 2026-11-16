@@ -202,8 +202,7 @@ export type ErpOperationName =
   | 'remover_produto_os'
   | 'adicionar_servico_os'
   | 'remover_servico_os'
-  | 'editar_item_os'
-  | 'alterar_valor_total_os';
+  | 'editar_item_os';
 
 export interface ErpResponseMetadata {
   operation: ErpOperationName;

@@ -20,7 +20,6 @@ import {
   executeRemoverProdutoOs,
   executeAdicionarServicoOs,
   executeEditarItemOs,
-  executeAlterarValorTotalOs,
   executeCancelarOperacaoPendente,
 } from '../src/tools/mutation-tools.ts';
 
@@ -377,13 +376,18 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       expect(osAtualizada.servicos[0]!.valor_unitario).toBe(80);
     });
 
-    it('Altera o valor total da OS diretamente com confirmação em 2 turnos', async () => {
+    it('O valor total da OS é calculado somando os itens e atualiza automaticamente ao editar item', async () => {
       const userData = createSessionUserData({ erpClient });
-      // Turno 1: Solicita alterar o valor total da OS 4343 para R$ 90,00
-      const resStep1 = await executeAlterarValorTotalOs(
+      // OS 4343 tem inicialmente 1 serviço de R$ 60, total R$ 60
+      const osInicial = mockStore.consultarOS('4343');
+      expect(osInicial.valor_total).toBe(60);
+
+      // Turno 1: Solicita alterar o valor do serviço na OS 4343 para R$ 90,00
+      const resStep1 = await executeEditarItemOs(
         {
           numero_os: '4343',
-          novo_valor_total: 90,
+          item_id: '663',
+          novo_valor_unitario: 90,
           confirmado_pelo_usuario: false,
         },
         { userData },
@@ -393,10 +397,11 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
 
       // Turno 2: Confirma
       advanceUserTurn(userData);
-      const resStep2 = await executeAlterarValorTotalOs(
+      const resStep2 = await executeEditarItemOs(
         {
           numero_os: '4343',
-          novo_valor_total: 90,
+          item_id: '663',
+          novo_valor_unitario: 90,
           confirmado_pelo_usuario: true,
         },
         { userData },
@@ -404,8 +409,12 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
 
       expect(resStep2.status).toBe('COMMITTED');
       expect(resStep2.messageForSpeech).toContain('90');
+      // O valor total da OS foi recalculado automaticamente para 90
       const os = mockStore.consultarOS('4343');
       expect(os.valor_total).toBe(90);
+      const detalhes = mockStore.consultarDetalhesOS('4343');
+      expect(detalhes.totais.valor_total).toBe(90);
+      expect(detalhes.totais.total_servicos).toBe(90);
     });
 
     it('Adiciona serviço com valor unitário personalizado', async () => {
