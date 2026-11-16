@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tsx src/main.ts dev",
     "start": "tsx src/main.ts start",
+    "start:prod": "tsx src/start-production.ts",
     "dev:api": "tsx watch src/server.ts",
     "start:api": "tsx src/server.ts",
     "build": "tsc --noEmit",
