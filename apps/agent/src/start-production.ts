@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env } from './config/env.ts';
@@ -30,8 +31,16 @@ if (!hasValidLiveKit) {
   );
 } else {
   console.log('[Production Runner] Credenciais do LiveKit detectadas. Iniciando Worker do Agente de Voz...');
-  const tsxCliPath = path.resolve(process.cwd(), 'node_modules/tsx/dist/cli.mjs');
-  agentProc = spawn(process.execPath, [tsxCliPath, path.join(__dirname, 'main.ts'), 'start'], {
+  const mainJsPath = path.join(__dirname, 'main.js');
+  const mainTsPath = path.join(__dirname, 'main.ts');
+  const hasCompiledJs = fs.existsSync(mainJsPath);
+
+  const mainFile = hasCompiledJs ? mainJsPath : mainTsPath;
+  const runnerArgs = hasCompiledJs
+    ? [mainFile, 'start']
+    : [path.resolve(process.cwd(), 'node_modules/tsx/dist/cli.mjs'), mainFile, 'start'];
+
+  agentProc = spawn(process.execPath, runnerArgs, {
     stdio: 'inherit',
     env: {
       ...process.env,
