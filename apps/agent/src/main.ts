@@ -54,12 +54,12 @@ export default defineAgent({
       turnHandling: {
         turnDetection: new inference.TurnDetector(),
         interruption: {
-          enabled: false, // Evita que o eco acústico do alto-falante do celular cancele a fala
+          enabled: true,
         },
         preemptiveGeneration: { enabled: false },
       },
       voiceOptions: {
-        allowInterruptions: false,
+        allowInterruptions: true,
         maxToolSteps: 5,
       },
     });

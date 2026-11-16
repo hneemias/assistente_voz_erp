@@ -124,13 +124,11 @@ export function createTtsProvider(config: AppEnv = env): tts.TTS {
 
     case 'livekit-inference':
     default: {
-      const modelName = config.TTS_MODEL.includes('/')
-        ? config.TTS_MODEL
-        : 'cartesia/sonic-3.6';
+      const modelName = config.TTS_MODEL || 'assemblyai/assemblyai-tts-1';
       return new inference.TTS({
         model: modelName as any,
-        voice: config.TTS_VOICE || 'a37639f0-2f0a-4de4-9942-875a187af878',
-        language: config.TTS_LANGUAGE || 'pt-BR',
+        voice: config.TTS_VOICE || undefined,
+        language: (config.TTS_LANGUAGE || 'pt') as any,
       });
     }
   }
