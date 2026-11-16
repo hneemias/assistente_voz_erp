@@ -108,6 +108,12 @@ if (process.env.VITEST === undefined && isMainScript && !process.send) {
       agent: fileURLToPath(import.meta.url),
       // Não pré-aloca processos filhos vazios na inicialização
       numIdleProcesses: 0,
+      // Aumenta o tempo limite de inicialização para 60 segundos
+      // evitando que a CPU compartilhada do Render mate o runner com timeout
+      initializeProcessTimeout: 60 * 1000,
+      // Escuta apenas em loopback para não competir com a porta pública 10000 do Render
+      host: '127.0.0.1',
+      port: 8081,
       jobMemoryWarnMB: 200,
       jobMemoryLimitMB: 350,
     }),
