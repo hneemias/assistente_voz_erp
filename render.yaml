@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: assistente-voz-erp
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ERP_MODE
+        value: mock
+      - key: CORS_ORIGIN
+        value: '*'
+      - key: LOG_LEVEL
+        value: info

@@ -50,11 +50,41 @@ const envSchema = z.object({
 export type AppEnv = z.infer<typeof envSchema>;
 
 export function loadEnv(overrides?: Partial<Record<keyof AppEnv, unknown>>): AppEnv {
+  // Normaliza chaves que possam ter sido injetadas como _Value ou _KEY
+  const livekitKey =
+    process.env.LIVEKIT_API_KEY ||
+    (process.env as Record<string, string | undefined>)['LIVEKIT_API_Value'] ||
+    '';
+  const llmKey =
+    process.env.LLM_API_KEY ||
+    (process.env as Record<string, string | undefined>)['LLM_API_Value'] ||
+    '';
+  const sttKey =
+    process.env.STT_API_KEY ||
+    (process.env as Record<string, string | undefined>)['STT_API_Value'] ||
+    '';
+  const ttsKey =
+    process.env.TTS_API_KEY ||
+    (process.env as Record<string, string | undefined>)['TTS_API_Value'] ||
+    '';
+
   const raw = {
     ...process.env,
+    ...(livekitKey ? { LIVEKIT_API_KEY: livekitKey } : {}),
+    ...(llmKey ? { LLM_API_KEY: llmKey } : {}),
+    ...(sttKey ? { STT_API_KEY: sttKey } : {}),
+    ...(ttsKey ? { TTS_API_KEY: ttsKey } : {}),
     ...overrides,
   };
-  return envSchema.parse(raw);
+
+  const parsed = envSchema.parse(raw);
+
+  // Garante que process.env.LIVEKIT_API_KEY também seja exposto para o LiveKit Agents SDK
+  if (parsed.LIVEKIT_API_KEY && !process.env.LIVEKIT_API_KEY) {
+    process.env.LIVEKIT_API_KEY = parsed.LIVEKIT_API_KEY;
+  }
+
+  return parsed;
 }
 
 export const env: AppEnv = loadEnv();

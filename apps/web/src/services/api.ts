@@ -5,7 +5,17 @@ import type {
   TokenResponse,
 } from '../types/assistant.ts';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') || '';
+const rawApiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') || '';
+
+// Se estiver no navegador fora do localhost (ex: no Render) e a variável apontar para localhost,
+// usa caminho relativo "" para bater diretamente no mesmo servidor que entregou o frontend.
+const API_BASE =
+  typeof window !== 'undefined' &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1' &&
+  rawApiBase.includes('localhost')
+    ? ''
+    : rawApiBase;
 
 export async function fetchHealthStatus(): Promise<HealthStatus> {
   const res = await fetch(`${API_BASE}/api/health`);

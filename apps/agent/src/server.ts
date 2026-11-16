@@ -1,5 +1,8 @@
 import cors from 'cors';
 import express, { type Express, type Request, type Response } from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { AgentDispatchClient } from 'livekit-server-sdk';
 import { generateSkewCompensatedLiveKitToken, syncClockSkew } from './utils/livekit-token.ts';
 import { z } from 'zod';
@@ -162,15 +165,56 @@ export function createApiServer(): Express {
     });
   });
 
+  // 5. Healthcheck simples para proxies e monitoramento de deploy (Render, AWS, GCP)
+  app.get('/healthz', (_req: Request, res: Response) => {
+    res.status(200).send('OK');
+  });
+
+  // 6. Servir a interface Web compilada do Vite (React) em produção
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const candidateDistPaths = [
+    path.resolve(process.cwd(), 'apps/web/dist'),
+    path.resolve(process.cwd(), '../web/dist'),
+    path.resolve(__dirname, '../../web/dist'),
+  ];
+  const webDistPath = candidateDistPaths.find((p) => fs.existsSync(p));
+
+  if (webDistPath) {
+    logger.info({ webDistPath }, 'Interface Web localizada: servindo arquivos estáticos');
+    app.use(express.static(webDistPath));
+    app.get('*', (req: Request, res: Response, next) => {
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(path.join(webDistPath, 'index.html'));
+    });
+  } else {
+    // Fallback amigável caso o build do frontend ainda não tenha sido executado
+    app.get('/', (_req: Request, res: Response) => {
+      res.status(200).json({
+        service: 'Inovar Voice ERP Assistant API',
+        status: 'online',
+        message: 'API ativa. Para a interface gráfica, execute npm run build no workspace web.',
+        endpoints: {
+          health: '/api/health',
+          metrics: '/api/metrics',
+          erpMapping: '/api/erp/mapping',
+        },
+      });
+    });
+  }
+
   return app;
 }
 
 if (!process.env.VITEST) {
   const app = createApiServer();
-  app.listen(env.PORT, () => {
+  const host = '0.0.0.0';
+  const port = Number(process.env.PORT) || env.PORT;
+  app.listen(port, host, () => {
     logger.info(
-      { port: env.PORT, erpMode: env.ERP_MODE },
-      `Servidor auxiliar de Tokens e Observabilidade rodando em http://localhost:${env.PORT}`,
+      { port, host, erpMode: env.ERP_MODE },
+      `Servidor auxiliar de Tokens, Interface Web e Observabilidade rodando em http://${host}:${port}`,
     );
   });
 }
