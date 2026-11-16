@@ -30,9 +30,9 @@ if (!hasValidLiveKit) {
   );
 } else {
   console.log('[Production Runner] Credenciais do LiveKit detectadas. Iniciando Worker do Agente de Voz...');
-  agentProc = spawn('npx', ['tsx', path.join(__dirname, 'main.ts'), 'start'], {
+  const tsxCliPath = path.resolve(process.cwd(), 'node_modules/tsx/dist/cli.mjs');
+  agentProc = spawn(process.execPath, [tsxCliPath, path.join(__dirname, 'main.ts'), 'start'], {
     stdio: 'inherit',
-    shell: true,
     env: {
       ...process.env,
       NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --max-old-space-size=256`,

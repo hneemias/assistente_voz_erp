@@ -18,12 +18,8 @@ import type { SessionUserData } from './types/session-types.ts';
 import { createSessionLogger, logger } from './utils/logger.ts';
 
 export default defineAgent({
-  // Prewarm carrega o modelo VAD uma única vez no processo pai para reduzir latência da primeira chamada
-  prewarm: async (proc: JobProcess) => {
-    logger.info('Prewarming Silero VAD model in worker parent process...');
-    proc.userData.vad = await silero.VAD.load();
-  },
-
+  // Em containers com memória restrita (ex: Render 512MB), o VAD é carregado sob demanda
+  // no entry() da chamada para manter a inicialização leve e abaixo de 150MB de RAM.
   entry: async (ctx: JobContext) => {
     const sessionId = ctx.room.name || `room-${Date.now()}`;
     const userId = ctx.job.participant?.identity || 'operador-bancada';
@@ -98,13 +94,22 @@ export default defineAgent({
   onSimulationEnd: onErpSimulationEnd,
 });
 
-if (process.env.VITEST === undefined) {
+// Executa o LiveKit CLI exclusivamente se este for o entrypoint direto do processo
+// e NUNCA quando for importado por processos filhos do LiveKit (evitando fork bomb e loop de memória)
+const isMainScript =
+  typeof process.argv[1] === 'string' &&
+  (process.argv[1] === fileURLToPath(import.meta.url) ||
+    process.argv[1].endsWith('main.ts') ||
+    process.argv[1].endsWith('main.js'));
+
+if (process.env.VITEST === undefined && isMainScript && !process.send) {
   cli.runApp(
     new ServerOptions({
       agent: fileURLToPath(import.meta.url),
-      // Evita que o LiveKit pré-aloque múltiplos processos ociosos na nuvem,
-      // mantendo o consumo de memória bem abaixo do limite de 512MB do Render Free
+      // Não pré-aloca processos filhos vazios na inicialização
       numIdleProcesses: 0,
+      jobMemoryWarnMB: 200,
+      jobMemoryLimitMB: 350,
     }),
   );
 }
