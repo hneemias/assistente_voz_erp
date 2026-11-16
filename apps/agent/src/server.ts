@@ -102,6 +102,23 @@ export function createApiServer(): Express {
         'Token de acesso à sala LiveKit gerado com sucesso',
       );
 
+      // Despacha o agente de voz imediatamente para esta nova sala isolada
+      try {
+        const livekitHost = env.LIVEKIT_URL.replace('wss://', 'https://');
+        const dispatchClient = new AgentDispatchClient(
+          livekitHost,
+          env.LIVEKIT_API_KEY,
+          env.LIVEKIT_API_SECRET,
+        );
+        await dispatchClient.createDispatch(resolvedRoom, env.LIVEKIT_AGENT_NAME);
+        logger.info(
+          { agentName: env.LIVEKIT_AGENT_NAME, room: resolvedRoom },
+          'Agente de voz despachado com sucesso para a sala',
+        );
+      } catch (dispatchErr: any) {
+        logger.warn({ err: dispatchErr?.message ?? dispatchErr }, 'Aviso ao despachar agente');
+      }
+
       res.json({
         serverUrl: env.LIVEKIT_URL,
         roomName: resolvedRoom,
