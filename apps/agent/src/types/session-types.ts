@@ -17,7 +17,10 @@ export interface PendingMutationPayload {
   servico_descricao?: string;
   valor_unitario?: number;
   item_id?: string;
+  item_identificador?: string;
   item_descricao?: string;
+  nova_quantidade?: number | null;
+  novo_valor_unitario?: number | null;
   quantidade?: number;
   valor_total_operacao?: number;
 }
@@ -31,6 +34,7 @@ export interface PendingMutation {
     | 'remover_produto_os'
     | 'adicionar_servico_os'
     | 'remover_servico_os'
+    | 'editar_item_os'
   >;
   osNumber: string;
   payload: PendingMutationPayload;

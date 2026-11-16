@@ -386,7 +386,7 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       const resStep1 = await executeEditarItemOs(
         {
           numero_os: '4343',
-          item_id: '663',
+          item_identificador: '663',
           novo_valor_unitario: 90,
           confirmado_pelo_usuario: false,
         },
@@ -400,7 +400,7 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       const resStep2 = await executeEditarItemOs(
         {
           numero_os: '4343',
-          item_id: '663',
+          item_identificador: '663',
           novo_valor_unitario: 90,
           confirmado_pelo_usuario: true,
         },
@@ -458,12 +458,12 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       const userData = createSessionUserData({ erpClient });
       // OS 4341 no payload real é 'Finalizado'
       const osFinalizada = await executeConsultarOs({ numero_os: '4341' }, userData);
-      expect(osFinalizada.data.status).toBe('finalizado');
+      expect((osFinalizada.data as any).status).toBe('finalizado');
       expect(osFinalizada.messageForSpeech).toContain('finalizado');
 
       // OS 4342 no payload real é 'Concluido' (serviço feito aguardando pagamento)
       const osConcluida = await executeConsultarOs({ numero_os: '4342' }, userData);
-      expect(osConcluida.data.status).toBe('concluido');
+      expect((osConcluida.data as any).status).toBe('concluido');
       expect(osConcluida.messageForSpeech).toContain('concluído (aguardando pagamento)');
 
       // Altera OS 4345 para 'em_processo_terceiros' com 2 turnos
@@ -482,7 +482,7 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
 
       // Verifica que listar_os_abertas não inclui finalizadas nem concluídas
       const abertas = await executeListarOsAbertas({}, userData);
-      const numerosAbertas = abertas.data.ordens.map((o: any) => o.numero_os);
+      const numerosAbertas = (abertas.data as any).ordens.map((o: any) => o.numero_os);
       expect(numerosAbertas).not.toContain('4341'); // Finalizado
       expect(numerosAbertas).not.toContain('4342'); // Concluido
     });

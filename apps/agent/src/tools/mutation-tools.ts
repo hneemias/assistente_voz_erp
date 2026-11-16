@@ -1269,8 +1269,8 @@ export async function executeEditarItemOs(
               payload: {
                 numero_os: targetOs,
                 item_identificador: args.item_identificador,
-                nova_quantidade: args.nova_quantidade,
-                novo_valor_unitario: args.novo_valor_unitario,
+                nova_quantidade: args.nova_quantidade ?? undefined,
+                novo_valor_unitario: args.novo_valor_unitario ?? undefined,
               },
               summaryForSpeech: summary,
               currentTurnIndex: currentTurn,
