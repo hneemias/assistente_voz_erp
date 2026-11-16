@@ -37,9 +37,11 @@ export const App: React.FC = () => {
 
     setIsConnecting(true);
     try {
+      // Cria uma sala única e limpa por sessão para evitar acúmulo de agentes fantasmas ou cache WebRTC
+      const uniqueRoomName = `${roomName.trim()}-${Date.now().toString(36)}`;
       const data = await requestLiveKitToken({
         participantName,
-        roomName,
+        roomName: uniqueRoomName,
       });
       setServerUrl(data.serverUrl);
       setToken(data.token);
