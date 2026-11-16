@@ -53,10 +53,6 @@ export default defineAgent({
       userData,
       turnHandling: {
         turnDetection: new inference.TurnDetector(),
-        endpointing: {
-          minDelay: 600,
-          maxDelay: 3000,
-        },
         preemptiveGeneration: { enabled: false },
       },
       voiceOptions: {
@@ -103,7 +99,6 @@ if (process.env.VITEST === undefined) {
   cli.runApp(
     new ServerOptions({
       agent: fileURLToPath(import.meta.url),
-      agentName: env.LIVEKIT_AGENT_NAME,
     }),
   );
 }
