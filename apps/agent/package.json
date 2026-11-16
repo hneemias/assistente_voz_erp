@@ -1,0 +1,47 @@
+{
+  "name": "@inovar/voice-erp-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Serviço do Agente de Voz LiveKit + Integração REST com ERP + Servidor de Tokens/Métricas",
+  "scripts": {
+    "dev": "tsx src/main.ts dev",
+    "start": "tsx src/main.ts start",
+    "dev:api": "tsx watch src/server.ts",
+    "start:api": "tsx src/server.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "download-files": "tsx src/main.ts download-files"
+  },
+  "dependencies": {
+    "@livekit/agents": "1.10.0",
+    "@livekit/agents-plugin-cartesia": "1.10.0",
+    "@livekit/agents-plugin-deepgram": "1.10.0",
+    "@livekit/agents-plugin-elevenlabs": "1.10.0",
+    "@livekit/agents-plugin-google": "1.10.0",
+    "@livekit/agents-plugin-openai": "1.10.0",
+    "@livekit/agents-plugin-silero": "1.10.0",
+    "@livekit/rtc-node": "^1.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "livekit-server-sdk": "^2.15.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.13.0",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}

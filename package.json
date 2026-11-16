@@ -1,0 +1,20 @@
+{
+  "name": "voice-erp-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Assistente de Voz Inteligente para Operação de ERP na Bancada com LiveKit Agents",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:agent": "npm --workspace=@inovar/voice-erp-agent run dev",
+    "dev:api": "npm --workspace=@inovar/voice-erp-agent run dev:api",
+    "dev:web": "npm --workspace=@inovar/voice-erp-web run dev",
+    "build": "npm --workspaces run build",
+    "typecheck": "npm --workspaces run typecheck",
+    "test": "npm --workspace=@inovar/voice-erp-agent run test"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

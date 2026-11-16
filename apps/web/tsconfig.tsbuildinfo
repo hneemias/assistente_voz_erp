@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/modalconfirm.tsx","./src/components/workbenchvoiceroom.tsx","./src/hooks/usebackendstatus.ts","./src/services/api.ts","./src/types/assistant.ts"],"version":"5.9.3"}
