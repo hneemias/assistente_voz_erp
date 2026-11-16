@@ -304,6 +304,12 @@ export const adicionarProdutoOsSchema = z.object({
     .number()
     .min(0.01)
     .describe('Quantidade do produto a ser adicionada (maior que zero).'),
+  preco_unitario: z
+    .number()
+    .min(0)
+    .nullable()
+    .optional()
+    .describe('Preço unitário personalizado em reais. Se omitido, utiliza o preço padrão de tabela cadastrado.'),
   confirmado_pelo_usuario: z
     .boolean()
     .default(false)
@@ -409,7 +415,9 @@ export async function executeAdicionarProdutoOs(
   }
 
   const product = resolution.product;
-  const subtotal = Math.round(product.preco_venda * args.quantidade * 100) / 100;
+  const precoFinal =
+    args.preco_unitario !== undefined && args.preco_unitario !== null ? args.preco_unitario : product.preco_venda;
+  const subtotal = Math.round(precoFinal * args.quantidade * 100) / 100;
   const currentTurn = getCurrentUserTurnIndex(userData, execCtx.sessionHistoryItems);
 
   const gate = verifyConfirmationGate({
@@ -433,7 +441,7 @@ export async function executeAdicionarProdutoOs(
   }
 
   if (!gate.allowed) {
-    const summary = `Confirma adicionar ${args.quantidade} ${product.unidade} de ${product.nome} (código ${product.codigo}, ${product.preco_venda.toFixed(2)} reais cada, subtotal ${subtotal.toFixed(2)} reais) na OS ${targetOs}?`;
+    const summary = `Confirma adicionar ${args.quantidade} ${product.unidade} de ${product.nome} (código ${product.codigo}, ${precoFinal.toFixed(2)} reais cada, subtotal ${subtotal.toFixed(2)} reais) na OS ${targetOs}?`;
     const pending =
       gate.reason === 'SAME_TURN_APPROVAL_FORBIDDEN' && gate.pendingMutation
         ? gate.pendingMutation
@@ -446,7 +454,7 @@ export async function executeAdicionarProdutoOs(
               produto_id: product.produto_id,
               produto_nome: product.nome,
               produto_unidade: product.unidade,
-              preco_unitario: product.preco_venda,
+              preco_unitario: precoFinal,
               quantidade: args.quantidade,
               valor_total_operacao: subtotal,
             },
@@ -495,6 +503,7 @@ export async function executeAdicionarProdutoOs(
       targetOs,
       product.produto_id,
       args.quantidade,
+      precoFinal,
       { idempotencyKey: pending.idempotencyKey },
     );
     userData.pendingMutation = null;
@@ -762,6 +771,12 @@ export const adicionarServicoOsSchema = z.object({
     .min(0.01)
     .default(1)
     .describe('Quantidade do serviço a adicionar (padrão: 1).'),
+  valor_unitario: z
+    .number()
+    .min(0)
+    .nullable()
+    .optional()
+    .describe('Valor unitário personalizado em reais para o serviço. Se omitido, usa o valor padrão cadastrado.'),
   confirmado_pelo_usuario: z
     .boolean()
     .default(false)
@@ -816,7 +831,9 @@ export async function executeAdicionarServicoOs(
     const resolvedSrv = catalogMatches[0];
     const srvId = resolvedSrv ? resolvedSrv.servico_id : args.servico_id;
     const srvDesc = resolvedSrv ? resolvedSrv.descricao : args.servico_id;
-    const valorUnitario = resolvedSrv ? resolvedSrv.valor_padrao : 0;
+    const valorPadrao = resolvedSrv ? resolvedSrv.valor_padrao : 0;
+    const valorUnitario =
+      args.valor_unitario !== undefined && args.valor_unitario !== null ? args.valor_unitario : valorPadrao;
     const subtotal = Math.round(valorUnitario * args.quantidade * 100) / 100;
 
     const currentTurn = getCurrentUserTurnIndex(userData, execCtx.sessionHistoryItems);
@@ -895,7 +912,7 @@ export async function executeAdicionarServicoOs(
     const pending = gate.pendingMutation!;
     execCtx.disallowInterruptions?.();
 
-    const res = await userData.erpClient.adicionarServicoOS(targetOs, srvId, args.quantidade, {
+    const res = await userData.erpClient.adicionarServicoOS(targetOs, srvId, args.quantidade, valorUnitario, {
       idempotencyKey: pending.idempotencyKey,
     });
     userData.pendingMutation = null;
@@ -1142,7 +1159,341 @@ export async function executeRemoverServicoOs(
 }
 
 // ============================================================================
-// 16. cancelar_operacao_pendente()
+// 15. editar_item_os(numero_os, item_identificador, nova_quantidade, novo_valor_unitario, confirmado_pelo_usuario)
+// ============================================================================
+export const editarItemOsSchema = z.object({
+  numero_os: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Número da OS (ex: "4345"). Se omitido ou nulo, usa a OS ativa no contexto.'),
+  item_identificador: z
+    .string()
+    .min(1)
+    .describe(
+      'Identificador do item que já está na OS: código (ex: "663", "1091"), ID do item (ex: "ITEM-P-1"), ou nome/descrição (ex: "formatação", "antivirus", "cabo").',
+    ),
+  nova_quantidade: z
+    .number()
+    .min(0.01)
+    .nullable()
+    .optional()
+    .describe('Nova quantidade para o item (se desejar alterar a quantidade).'),
+  novo_valor_unitario: z
+    .number()
+    .min(0)
+    .nullable()
+    .optional()
+    .describe('Novo valor unitário em reais para o item (se desejar alterar o valor/preço).'),
+  confirmado_pelo_usuario: z
+    .boolean()
+    .default(false)
+    .describe(
+      'Passe false na primeira chamada para identificar o item e pedir confirmação ao operador. Passe true SOMENTE após confirmação no turno seguinte.',
+    ),
+});
+
+export async function executeEditarItemOs(
+  args: z.infer<typeof editarItemOsSchema>,
+  execCtx: MutationExecutionContext,
+): Promise<MutationToolResponse> {
+  const startTime = Date.now();
+  const { userData } = execCtx;
+  const targetOs = resolveTargetOsNumber(userData, args.numero_os);
+
+  if (!targetOs) {
+    throw new llm.ToolError(
+      'Número da OS não informado e não há OS ativa no contexto. Pergunte ao operador qual OS deseja editar.',
+    );
+  }
+
+  if (args.nova_quantidade === undefined && args.novo_valor_unitario === undefined) {
+    throw new llm.ToolError(
+      'Você deve informar a nova quantidade ou o novo valor unitário para editar o item.',
+    );
+  }
+
+  try {
+    const osDetalhes = await userData.erpClient.consultarDetalhesOS(targetOs);
+    setActiveOsContext(userData, targetOs, osDetalhes.data);
+
+    const currentTurn = getCurrentUserTurnIndex(userData, execCtx.sessionHistoryItems);
+    const gate = verifyConfirmationGate({
+      userData,
+      operation: 'editar_item_os' as any,
+      osNumber: targetOs,
+      confirmedByUserFlag: Boolean(args.confirmado_pelo_usuario),
+      currentTurnIndex: currentTurn,
+    });
+
+    if (gate.alreadyExecuted) {
+      return {
+        status:
+          gate.alreadyExecuted.status === 'INCONCLUSIVE_TIMEOUT'
+            ? 'INCONCLUSIVE_TIMEOUT'
+            : 'COMMITTED',
+        messageForSpeech: gate.alreadyExecuted.resultSummary,
+        erpMode: userData.erpClient.mode,
+        activeOsNumber: userData.activeOsNumber,
+      };
+    }
+
+    if (!gate.allowed) {
+      const mudancas: string[] = [];
+      if (args.novo_valor_unitario !== undefined && args.novo_valor_unitario !== null) {
+        mudancas.push(`valor de ${args.novo_valor_unitario.toFixed(2)} reais`);
+      }
+      if (args.nova_quantidade !== undefined && args.nova_quantidade !== null) {
+        mudancas.push(`quantidade ${args.nova_quantidade}`);
+      }
+
+      const summary = `Confirma alterar o item '${args.item_identificador}' na OS ${targetOs} para ${mudancas.join(' e ')}?`;
+      const pending =
+        gate.reason === 'SAME_TURN_APPROVAL_FORBIDDEN' && gate.pendingMutation
+          ? gate.pendingMutation
+          : stagePendingMutation({
+              userData,
+              operation: 'editar_item_os' as any,
+              osNumber: targetOs,
+              payload: {
+                numero_os: targetOs,
+                item_identificador: args.item_identificador,
+                nova_quantidade: args.nova_quantidade,
+                novo_valor_unitario: args.novo_valor_unitario,
+              },
+              summaryForSpeech: summary,
+              currentTurnIndex: currentTurn,
+            });
+
+      const durationMs = Math.max(1, Date.now() - startTime);
+      metrics.recordToolCall({
+        toolName: 'editar_item_os',
+        durationMs,
+        outcome: 'CONFIRMATION_REQUIRED',
+      });
+
+      return {
+        status: 'CONFIRMATION_REQUIRED',
+        messageForSpeech: `CONFIRMAÇÃO OBRIGATÓRIA: Pergunte ao operador: "${pending.summaryForSpeech}"`,
+        data: {
+          pendingMutationId: pending.mutationId,
+          item: args.item_identificador,
+          novaQuantidade: args.nova_quantidade,
+          novoValorUnitario: args.novo_valor_unitario,
+        },
+        erpMode: userData.erpClient.mode,
+        activeOsNumber: userData.activeOsNumber,
+      };
+    }
+
+    const pending = gate.pendingMutation!;
+    execCtx.disallowInterruptions?.();
+
+    const res = await userData.erpClient.editarItemOS(
+      targetOs,
+      args.item_identificador,
+      {
+        novaQuantidade: args.nova_quantidade ?? undefined,
+        novoValorUnitario: args.novo_valor_unitario ?? undefined,
+      },
+      { idempotencyKey: pending.idempotencyKey },
+    );
+
+    userData.pendingMutation = null;
+    metrics.recordConfirmationApproved();
+
+    const speech = `Item '${args.item_identificador}' alterado com sucesso na OS ${targetOs}. Novo total da ordem: ${res.data.totais.valor_total.toFixed(2)} reais.`;
+
+    userData.executedMutations.set(pending.idempotencyKey, {
+      idempotencyKey: pending.idempotencyKey,
+      operation: 'editar_item_os' as any,
+      osNumber: targetOs,
+      executedAtIso: new Date().toISOString(),
+      status: 'COMMITTED',
+      resultSummary: speech,
+    });
+
+    return {
+      status: 'COMMITTED',
+      messageForSpeech: speech,
+      data: res.data,
+      erpMode: userData.erpClient.mode,
+      activeOsNumber: userData.activeOsNumber,
+    };
+  } catch (err) {
+    return handleMutationError(
+      err,
+      'editar_item_os',
+      'executar_editar_item_os',
+      userData,
+      startTime,
+      targetOs,
+    );
+  }
+}
+
+// ============================================================================
+// 16. alterar_valor_total_os(numero_os, novo_valor_total, desconto, confirmado_pelo_usuario)
+// ============================================================================
+export const alterarValorTotalOsSchema = z.object({
+  numero_os: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Número da OS (ex: "4345"). Se omitido, usa a OS ativa no contexto.'),
+  novo_valor_total: z
+    .number()
+    .min(0)
+    .nullable()
+    .optional()
+    .describe('Novo valor total líquido em reais para a Ordem de Serviço.'),
+  desconto: z
+    .number()
+    .min(0)
+    .nullable()
+    .optional()
+    .describe('Valor de desconto em reais a ser aplicado na OS.'),
+  confirmado_pelo_usuario: z
+    .boolean()
+    .default(false)
+    .describe(
+      'Passe false na primeira chamada para pedir confirmação ao operador. Passe true SOMENTE após confirmação no turno seguinte.',
+    ),
+});
+
+export async function executeAlterarValorTotalOs(
+  args: z.infer<typeof alterarValorTotalOsSchema>,
+  execCtx: MutationExecutionContext,
+): Promise<MutationToolResponse> {
+  const startTime = Date.now();
+  const { userData } = execCtx;
+  const targetOs = resolveTargetOsNumber(userData, args.numero_os);
+
+  if (!targetOs) {
+    throw new llm.ToolError(
+      'Número da OS não informado e não há OS ativa no contexto. Pergunte ao operador qual OS deseja alterar o valor.',
+    );
+  }
+
+  if (args.novo_valor_total === undefined && args.desconto === undefined) {
+    throw new llm.ToolError('Informe o novo valor total ou o desconto para a OS.');
+  }
+
+  try {
+    const osDetalhes = await userData.erpClient.consultarOS(targetOs);
+    setActiveOsContext(userData, targetOs, osDetalhes.data);
+
+    const currentTurn = getCurrentUserTurnIndex(userData, execCtx.sessionHistoryItems);
+    const gate = verifyConfirmationGate({
+      userData,
+      operation: 'alterar_valor_total_os' as any,
+      osNumber: targetOs,
+      confirmedByUserFlag: Boolean(args.confirmado_pelo_usuario),
+      currentTurnIndex: currentTurn,
+    });
+
+    if (gate.alreadyExecuted) {
+      return {
+        status:
+          gate.alreadyExecuted.status === 'INCONCLUSIVE_TIMEOUT'
+            ? 'INCONCLUSIVE_TIMEOUT'
+            : 'COMMITTED',
+        messageForSpeech: gate.alreadyExecuted.resultSummary,
+        erpMode: userData.erpClient.mode,
+        activeOsNumber: userData.activeOsNumber,
+      };
+    }
+
+    if (!gate.allowed) {
+      const detalhe =
+        args.novo_valor_total !== undefined && args.novo_valor_total !== null
+          ? `novo total de ${args.novo_valor_total.toFixed(2)} reais`
+          : `desconto de ${args.desconto!.toFixed(2)} reais`;
+
+      const summary = `Confirma alterar a OS ${targetOs} para ${detalhe}?`;
+      const pending =
+        gate.reason === 'SAME_TURN_APPROVAL_FORBIDDEN' && gate.pendingMutation
+          ? gate.pendingMutation
+          : stagePendingMutation({
+              userData,
+              operation: 'alterar_valor_total_os' as any,
+              osNumber: targetOs,
+              payload: {
+                numero_os: targetOs,
+                novo_valor_total: args.novo_valor_total,
+                desconto: args.desconto,
+              },
+              summaryForSpeech: summary,
+              currentTurnIndex: currentTurn,
+            });
+
+      const durationMs = Math.max(1, Date.now() - startTime);
+      metrics.recordToolCall({
+        toolName: 'alterar_valor_total_os',
+        durationMs,
+        outcome: 'CONFIRMATION_REQUIRED',
+      });
+
+      return {
+        status: 'CONFIRMATION_REQUIRED',
+        messageForSpeech: `CONFIRMAÇÃO OBRIGATÓRIA: Pergunte ao operador: "${pending.summaryForSpeech}"`,
+        data: {
+          pendingMutationId: pending.mutationId,
+          novoValorTotal: args.novo_valor_total,
+          desconto: args.desconto,
+        },
+        erpMode: userData.erpClient.mode,
+        activeOsNumber: userData.activeOsNumber,
+      };
+    }
+
+    const pending = gate.pendingMutation!;
+    execCtx.disallowInterruptions?.();
+
+    const res = await userData.erpClient.alterarValorTotalOS(
+      targetOs,
+      {
+        novoValorTotal: args.novo_valor_total ?? undefined,
+        desconto: args.desconto ?? undefined,
+      },
+      { idempotencyKey: pending.idempotencyKey },
+    );
+
+    userData.pendingMutation = null;
+    metrics.recordConfirmationApproved();
+
+    const speech = `Valor da OS ${targetOs} atualizado com sucesso. Novo valor total: ${res.data.totais.valor_total.toFixed(2)} reais.`;
+
+    userData.executedMutations.set(pending.idempotencyKey, {
+      idempotencyKey: pending.idempotencyKey,
+      operation: 'alterar_valor_total_os' as any,
+      osNumber: targetOs,
+      executedAtIso: new Date().toISOString(),
+      status: 'COMMITTED',
+      resultSummary: speech,
+    });
+
+    return {
+      status: 'COMMITTED',
+      messageForSpeech: speech,
+      data: res.data,
+      erpMode: userData.erpClient.mode,
+      activeOsNumber: userData.activeOsNumber,
+    };
+  } catch (err) {
+    return handleMutationError(
+      err,
+      'alterar_valor_total_os',
+      'executar_alterar_valor_total_os',
+      userData,
+      startTime,
+      targetOs,
+    );
+  }
+}
+
+// ============================================================================
+// 17. cancelar_operacao_pendente()
 // ============================================================================
 export const cancelarOperacaoPendenteSchema = z.object({
   motivo: z.string().nullable().optional().describe('Motivo opcional do cancelamento.'),
@@ -1256,6 +1607,35 @@ export function createMutationTools() {
       parameters: removerServicoOsSchema,
       execute: async (args, { ctx }: llm.ToolOptions<SessionUserData>) =>
         executeRemoverServicoOs(args, {
+          userData: ctx.userData,
+          sessionHistoryItems: ctx.session?.history?.items as any,
+          disallowInterruptions: () => ctx.disallowInterruptions(),
+        }),
+    }),
+    llm.tool({
+      name: 'editar_item_os',
+      description:
+        'Edita a quantidade e/ou o valor unitário de um produto ou serviço já existente em uma Ordem de Serviço. ' +
+        'Use quando o operador pedir para alterar o valor de um item, mudar o preço ou alterar a quantidade. ' +
+        'REGRA DE SEGURANÇA: Passe confirmado_pelo_usuario=false na primeira chamada para identificar o item e pedir confirmação. ' +
+        'Somente no turno seguinte após confirmação do operador, passe confirmado_pelo_usuario=true.',
+      parameters: editarItemOsSchema,
+      execute: async (args, { ctx }: llm.ToolOptions<SessionUserData>) =>
+        executeEditarItemOs(args, {
+          userData: ctx.userData,
+          sessionHistoryItems: ctx.session?.history?.items as any,
+          disallowInterruptions: () => ctx.disallowInterruptions(),
+        }),
+    }),
+    llm.tool({
+      name: 'alterar_valor_total_os',
+      description:
+        'Altera o valor total ou aplica um desconto em uma Ordem de Serviço. ' +
+        'Use quando o operador pedir para mudar o total da OS, dar um desconto ou ajustar o valor final. ' +
+        'REGRA DE SEGURANÇA: Passe confirmado_pelo_usuario=false primeiro para pedir confirmação e true após confirmação.',
+      parameters: alterarValorTotalOsSchema,
+      execute: async (args, { ctx }: llm.ToolOptions<SessionUserData>) =>
+        executeAlterarValorTotalOs(args, {
           userData: ctx.userData,
           sessionHistoryItems: ctx.session?.history?.items as any,
           disallowInterruptions: () => ctx.disallowInterruptions(),

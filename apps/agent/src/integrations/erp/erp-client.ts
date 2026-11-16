@@ -479,13 +479,14 @@ export class ErpClient {
     numeroOs: string,
     produtoId: string,
     quantidade: number,
+    precoUnitarioCustom?: number,
     options?: RequestExecutionOptions,
   ): Promise<ErpOperationResult<{ item_adicionado: ItemProdutoOS; totais: TotaisOS }>> {
     const start = Date.now();
     if (this.mode === 'mock') {
       return this.wrapResult(
         'adicionar_produto_os',
-        this.mockStore.adicionarProdutoOS(numeroOs, produtoId, quantidade),
+        this.mockStore.adicionarProdutoOS(numeroOs, produtoId, quantidade, precoUnitarioCustom),
         start,
         201,
         options?.idempotencyKey,
@@ -494,7 +495,7 @@ export class ErpClient {
     return this.executeHttp<{ item_adicionado: ItemProdutoOS; totais: TotaisOS }>({
       operation: 'adicionar_produto_os',
       pathParams: { numero_os: numeroOs },
-      body: { produto_id: produtoId, quantidade },
+      body: { produto_id: produtoId, quantidade, preco_unitario: precoUnitarioCustom },
       options,
     });
   }
@@ -525,13 +526,14 @@ export class ErpClient {
     numeroOs: string,
     servicoId: string,
     quantidade: number,
+    valorUnitarioCustom?: number,
     options?: RequestExecutionOptions,
   ): Promise<ErpOperationResult<{ item_adicionado: ItemServicoOS; totais: TotaisOS }>> {
     const start = Date.now();
     if (this.mode === 'mock') {
       return this.wrapResult(
         'adicionar_servico_os',
-        this.mockStore.adicionarServicoOS(numeroOs, servicoId, quantidade),
+        this.mockStore.adicionarServicoOS(numeroOs, servicoId, quantidade, valorUnitarioCustom),
         start,
         201,
         options?.idempotencyKey,
@@ -540,7 +542,7 @@ export class ErpClient {
     return this.executeHttp<{ item_adicionado: ItemServicoOS; totais: TotaisOS }>({
       operation: 'adicionar_servico_os',
       pathParams: { numero_os: numeroOs },
-      body: { servico_id: servicoId, quantidade },
+      body: { servico_id: servicoId, quantidade, valor_unitario: valorUnitarioCustom },
       options,
     });
   }
@@ -563,6 +565,65 @@ export class ErpClient {
     return this.executeHttp<{ item_removido: ItemServicoOS; totais: TotaisOS }>({
       operation: 'remover_servico_os',
       pathParams: { numero_os: numeroOs, item_id: itemId },
+      options,
+    });
+  }
+
+  public async editarItemOS(
+    numeroOs: string,
+    itemIdOuNomeOuCodigo: string,
+    params: {
+      novaQuantidade?: number;
+      novoValorUnitario?: number;
+    },
+    options?: RequestExecutionOptions,
+  ): Promise<
+    ErpOperationResult<{
+      item_atualizado: ItemProdutoOS | ItemServicoOS;
+      tipo: 'produto' | 'servico';
+      totais: TotaisOS;
+    }>
+  > {
+    const start = Date.now();
+    if (this.mode === 'mock') {
+      return this.wrapResult(
+        'editar_item_os',
+        this.mockStore.editarItemOS(numeroOs, itemIdOuNomeOuCodigo, params),
+        start,
+        200,
+        options?.idempotencyKey,
+      );
+    }
+    return this.executeHttp({
+      operation: 'editar_item_os',
+      pathParams: { numero_os: numeroOs, item_id: itemIdOuNomeOuCodigo },
+      body: params,
+      options,
+    });
+  }
+
+  public async alterarValorTotalOS(
+    numeroOs: string,
+    params: {
+      novoValorTotal?: number;
+      desconto?: number;
+    },
+    options?: RequestExecutionOptions,
+  ): Promise<ErpOperationResult<{ totais: TotaisOS }>> {
+    const start = Date.now();
+    if (this.mode === 'mock') {
+      return this.wrapResult(
+        'alterar_valor_total_os',
+        this.mockStore.alterarValorTotalOS(numeroOs, params),
+        start,
+        200,
+        options?.idempotencyKey,
+      );
+    }
+    return this.executeHttp<{ totais: TotaisOS }>({
+      operation: 'alterar_valor_total_os',
+      pathParams: { numero_os: numeroOs },
+      body: params,
       options,
     });
   }

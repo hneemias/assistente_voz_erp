@@ -785,6 +785,7 @@ export class ErpMockStore {
     numeroOs: string,
     produtoIdOuCodigo: string,
     quantidade: number,
+    precoUnitarioCustom?: number,
   ): { item_adicionado: ItemProdutoOS; totais: TotaisOS } {
     if (quantidade <= 0) {
       throw new ErpValidationError('adicionar_produto_os', 'A quantidade deve ser maior que zero.');
@@ -809,6 +810,7 @@ export class ErpMockStore {
 
     prod.estoque_atual -= quantidade;
     this.nextItemSeq += 1;
+    const precoUnitario = precoUnitarioCustom !== undefined && precoUnitarioCustom >= 0 ? precoUnitarioCustom : prod.preco_venda;
     const novoItem: ItemProdutoOS = {
       item_id: `ITEM-P-${this.nextItemSeq}`,
       produto_id: prod.produto_id,
@@ -816,8 +818,8 @@ export class ErpMockStore {
       nome: prod.nome,
       unidade: prod.unidade,
       quantidade,
-      preco_unitario: prod.preco_venda,
-      subtotal: Math.round(prod.preco_venda * quantidade * 100) / 100,
+      preco_unitario: precoUnitario,
+      subtotal: Math.round(precoUnitario * quantidade * 100) / 100,
     };
 
     os.produtos.push(novoItem);
@@ -868,6 +870,7 @@ export class ErpMockStore {
     numeroOs: string,
     servicoIdOuDescricao: string,
     quantidade: number,
+    valorUnitarioCustom?: number,
   ): { item_adicionado: ItemServicoOS; totais: TotaisOS } {
     if (quantidade <= 0) {
       throw new ErpValidationError('adicionar_servico_os', 'A quantidade deve ser maior que zero.');
@@ -891,14 +894,15 @@ export class ErpMockStore {
     }
 
     this.nextItemSeq += 1;
+    const valorUnitario = valorUnitarioCustom !== undefined && valorUnitarioCustom >= 0 ? valorUnitarioCustom : srv.valor_padrao;
     const novoItem: ItemServicoOS = {
       item_id: `ITEM-S-${this.nextItemSeq}`,
       servico_id: srv.servico_id,
       codigo: srv.codigo,
       descricao: srv.descricao,
       quantidade,
-      valor_unitario: srv.valor_padrao,
-      subtotal: Math.round(srv.valor_padrao * quantidade * 100) / 100,
+      valor_unitario: valorUnitario,
+      subtotal: Math.round(valorUnitario * quantidade * 100) / 100,
     };
 
     os.servicos.push(novoItem);
@@ -906,6 +910,126 @@ export class ErpMockStore {
 
     return {
       item_adicionado: structuredClone(novoItem),
+      totais: structuredClone(os.totais),
+    };
+  }
+
+  public editarItemOS(
+    numeroOs: string,
+    itemIdOuNomeOuCodigo: string,
+    params: {
+      novaQuantidade?: number;
+      novoValorUnitario?: number;
+    },
+  ): {
+    item_atualizado: ItemProdutoOS | ItemServicoOS;
+    tipo: 'produto' | 'servico';
+    totais: TotaisOS;
+  } {
+    const os = this.ordens.get(String(numeroOs).trim());
+    if (!os) {
+      throw new ErpNotFoundError('editar_item_os', `Ordem de Serviço ${numeroOs}`);
+    }
+    const clean = normalizeText(itemIdOuNomeOuCodigo);
+
+    // 1. Procurar em produtos da OS
+    const prodIndex = os.produtos.findIndex((p) => {
+      return (
+        normalizeText(p.item_id) === clean ||
+        normalizeText(p.codigo) === clean ||
+        normalizeText(p.produto_id) === clean ||
+        normalizeText(p.nome).includes(clean)
+      );
+    });
+
+    if (prodIndex !== -1) {
+      const item = os.produtos[prodIndex]!;
+      if (params.novaQuantidade !== undefined && params.novaQuantidade > 0) {
+        const diff = params.novaQuantidade - item.quantidade;
+        const prod = this.produtos.get(item.produto_id);
+        if (prod && diff > 0 && prod.estoque_atual < diff) {
+          throw new ErpValidationError(
+            'editar_item_os',
+            `Estoque insuficiente para aumentar a quantidade em ${diff} ${item.unidade}. Disponível em estoque: ${prod.estoque_atual}.`,
+          );
+        }
+        if (prod) {
+          prod.estoque_atual -= diff;
+        }
+        item.quantidade = params.novaQuantidade;
+      }
+      if (params.novoValorUnitario !== undefined && params.novoValorUnitario >= 0) {
+        item.preco_unitario = params.novoValorUnitario;
+      }
+      item.subtotal = Math.round(item.quantidade * item.preco_unitario * 100) / 100;
+      this.recalculateOrdem(os);
+      return {
+        item_atualizado: structuredClone(item),
+        tipo: 'produto',
+        totais: structuredClone(os.totais),
+      };
+    }
+
+    // 2. Procurar em serviços da OS
+    const srvIndex = os.servicos.findIndex((s) => {
+      return (
+        normalizeText(s.item_id) === clean ||
+        normalizeText(s.codigo) === clean ||
+        normalizeText(s.servico_id) === clean ||
+        normalizeText(s.descricao).includes(clean)
+      );
+    });
+
+    if (srvIndex !== -1) {
+      const item = os.servicos[srvIndex]!;
+      if (params.novaQuantidade !== undefined && params.novaQuantidade > 0) {
+        item.quantidade = params.novaQuantidade;
+      }
+      if (params.novoValorUnitario !== undefined && params.novoValorUnitario >= 0) {
+        item.valor_unitario = params.novoValorUnitario;
+      }
+      item.subtotal = Math.round(item.quantidade * item.valor_unitario * 100) / 100;
+      this.recalculateOrdem(os);
+      return {
+        item_atualizado: structuredClone(item),
+        tipo: 'servico',
+        totais: structuredClone(os.totais),
+      };
+    }
+
+    throw new ErpNotFoundError('editar_item_os', `Item '${itemIdOuNomeOuCodigo}' na OS ${numeroOs}`);
+  }
+
+  public alterarValorTotalOS(
+    numeroOs: string,
+    params: {
+      novoValorTotal?: number;
+      desconto?: number;
+    },
+  ): { totais: TotaisOS } {
+    const os = this.ordens.get(String(numeroOs).trim());
+    if (!os) {
+      throw new ErpNotFoundError('alterar_valor_total_os', `Ordem de Serviço ${numeroOs}`);
+    }
+
+    if (params.desconto !== undefined && params.desconto >= 0) {
+      os.totais.desconto = params.desconto;
+    }
+    if (params.novoValorTotal !== undefined && params.novoValorTotal >= 0) {
+      const somaItens = os.totais.total_produtos + os.totais.total_servicos;
+      if (params.novoValorTotal < somaItens) {
+        os.totais.desconto = Math.round((somaItens - params.novoValorTotal) * 100) / 100;
+      } else {
+        os.totais.desconto = 0;
+      }
+      os.totais.valor_total = params.novoValorTotal;
+      os.valor_total = params.novoValorTotal;
+    } else {
+      this.recalculateOrdem(os);
+    }
+    os.atualizado_em = new Date().toISOString();
+
+    return {
       totais: structuredClone(os.totais),
     };
   }

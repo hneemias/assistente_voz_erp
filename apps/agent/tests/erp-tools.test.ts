@@ -18,6 +18,9 @@ import {
   executeAlterarStatusOs,
   executeAdicionarProdutoOs,
   executeRemoverProdutoOs,
+  executeAdicionarServicoOs,
+  executeEditarItemOs,
+  executeAlterarValorTotalOs,
   executeCancelarOperacaoPendente,
 } from '../src/tools/mutation-tools.ts';
 
@@ -336,6 +339,110 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       expect(res.status).toBe('SUCCESS');
       expect(res.messageForSpeech).toContain('FORMATACAO DESKTOP');
       expect(res.messageForSpeech).toContain('120');
+    });
+
+    it('Edita valor de um item já existente na OS com confirmação em 2 turnos', async () => {
+      const userData = createSessionUserData({ erpClient });
+      // OS 4345 possui o item 663 (PRESTACAO DE SERVICOS) no valor de R$ 60,00
+      // Turno 1: Solicita alteração para R$ 80,00
+      const resStep1 = await executeEditarItemOs(
+        {
+          numero_os: '4345',
+          item_identificador: '663',
+          novo_valor_unitario: 80,
+          confirmado_pelo_usuario: false,
+        },
+        { userData },
+      );
+
+      expect(resStep1.status).toBe('CONFIRMATION_REQUIRED');
+      expect(userData.pendingMutation).not.toBeNull();
+
+      // Turno 2: Confirma
+      advanceUserTurn(userData);
+      const resStep2 = await executeEditarItemOs(
+        {
+          numero_os: '4345',
+          item_identificador: '663',
+          novo_valor_unitario: 80,
+          confirmado_pelo_usuario: true,
+        },
+        { userData },
+      );
+
+      expect(resStep2.status).toBe('COMMITTED');
+      expect(resStep2.messageForSpeech).toContain('80');
+      const osAtualizada = mockStore.consultarDetalhesOS('4345');
+      expect(osAtualizada.valor_total).toBe(80);
+      expect(osAtualizada.servicos[0]!.valor_unitario).toBe(80);
+    });
+
+    it('Altera o valor total da OS diretamente com confirmação em 2 turnos', async () => {
+      const userData = createSessionUserData({ erpClient });
+      // Turno 1: Solicita alterar o valor total da OS 4343 para R$ 90,00
+      const resStep1 = await executeAlterarValorTotalOs(
+        {
+          numero_os: '4343',
+          novo_valor_total: 90,
+          confirmado_pelo_usuario: false,
+        },
+        { userData },
+      );
+
+      expect(resStep1.status).toBe('CONFIRMATION_REQUIRED');
+
+      // Turno 2: Confirma
+      advanceUserTurn(userData);
+      const resStep2 = await executeAlterarValorTotalOs(
+        {
+          numero_os: '4343',
+          novo_valor_total: 90,
+          confirmado_pelo_usuario: true,
+        },
+        { userData },
+      );
+
+      expect(resStep2.status).toBe('COMMITTED');
+      expect(resStep2.messageForSpeech).toContain('90');
+      const os = mockStore.consultarOS('4343');
+      expect(os.valor_total).toBe(90);
+    });
+
+    it('Adiciona serviço com valor unitário personalizado', async () => {
+      const userData = createSessionUserData({ erpClient });
+      // Turno 1: Adiciona Formatação (1091) com valor negociado de R$ 100 em vez do padrão 120
+      const resStep1 = await executeAdicionarServicoOs(
+        {
+          numero_os: '4345',
+          servico_id: '1091',
+          quantidade: 1,
+          valor_unitario: 100,
+          confirmado_pelo_usuario: false,
+        },
+        { userData },
+      );
+
+      expect(resStep1.status).toBe('CONFIRMATION_REQUIRED');
+      expect(userData.pendingMutation?.payload.valor_unitario).toBe(100);
+
+      // Turno 2: Confirma
+      advanceUserTurn(userData);
+      const resStep2 = await executeAdicionarServicoOs(
+        {
+          numero_os: '4345',
+          servico_id: '1091',
+          quantidade: 1,
+          valor_unitario: 100,
+          confirmado_pelo_usuario: true,
+        },
+        { userData },
+      );
+
+      expect(resStep2.status).toBe('COMMITTED');
+      const os = mockStore.consultarDetalhesOS('4345');
+      const srv = os.servicos.find((s) => s.codigo === '1091');
+      expect(srv).toBeDefined();
+      expect(srv?.valor_unitario).toBe(100);
     });
   });
 });
