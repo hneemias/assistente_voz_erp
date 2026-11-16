@@ -11,13 +11,51 @@ import { logToolAudit } from '../utils/logger.ts';
 import { metrics } from '../utils/metrics.ts';
 
 const statusOsEnum = z.enum([
+  'em_aberto',
+  'em_processo',
+  'em_processo_terceiros',
+  'aguardando_autorizacao',
+  'aguardando_peca',
+  'concluido',
+  'finalizado',
+  'cancelada',
+  'nao_aprovado',
+  // Retrocompatibilidade / aliases
   'aberta',
   'em_andamento',
   'aguardando_pecas',
   'aguardando_aprovacao',
   'concluida',
-  'cancelada',
 ]);
+
+export function formatStatusLabel(status: string): string {
+  switch (status) {
+    case 'concluido':
+    case 'concluida':
+      return 'concluído (aguardando pagamento)';
+    case 'finalizado':
+      return 'finalizado';
+    case 'em_processo':
+    case 'em_andamento':
+      return 'em processo';
+    case 'em_processo_terceiros':
+      return 'em processo de terceiros';
+    case 'aguardando_autorizacao':
+    case 'aguardando_aprovacao':
+      return 'aguardando autorização';
+    case 'aguardando_peca':
+    case 'aguardando_pecas':
+      return 'aguardando peça';
+    case 'nao_aprovado':
+      return 'não aprovado';
+    case 'cancelada':
+      return 'cancelada';
+    case 'em_aberto':
+    case 'aberta':
+    default:
+      return status ? status.replace(/_/g, ' ') : 'em aberto';
+  }
+}
 
 export interface ToolResponse<T = unknown> {
   status: 'SUCCESS' | 'AMBIGUOUS' | 'NOT_FOUND' | 'ERROR';
@@ -118,7 +156,7 @@ export async function executeConsultarOs(
         : '';
     return {
       status: 'SUCCESS',
-      messageForSpeech: `A OS ${os.numero_os} do cliente ${os.cliente_nome}${equipInfo} está com status ${os.status.replace(/_/g, ' ')}, possui ${os.quantidade_itens} itens e valor total de ${os.valor_total.toFixed(2)} reais.`,
+      messageForSpeech: `A OS ${os.numero_os} do cliente ${os.cliente_nome}${equipInfo} está com status ${formatStatusLabel(os.status)}, possui ${os.quantidade_itens} itens e valor total de ${os.valor_total.toFixed(2)} reais.`,
       data: os,
       erpMode: userData.erpClient.mode,
       activeOsNumber: userData.activeOsNumber,
@@ -233,7 +271,7 @@ export async function executeListarOsAbertas(
         top6
           .map(
             (o) =>
-              `OS ${o.numero_os} do cliente ${o.cliente_nome} (${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais)`,
+              `OS ${o.numero_os} do cliente ${o.cliente_nome} (${formatStatusLabel(o.status)}, total ${o.valor_total.toFixed(2)} reais)`,
           )
           .join('; ') +
         `. E mais ${ordens.length - 6} ordens no sistema.`;
@@ -346,7 +384,7 @@ export async function executeListarTodasOs(
               o.veiculo_equipamento !== 'Equipamento não especificado'
                 ? ` (${o.veiculo_equipamento})`
                 : '';
-            return `OS ${o.numero_os} de ${o.cliente_nome}${equip}, status ${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais`;
+            return `OS ${o.numero_os} de ${o.cliente_nome}${equip}, status ${formatStatusLabel(o.status)}, total ${o.valor_total.toFixed(2)} reais`;
           })
           .join('; ') +
         '.';
@@ -360,7 +398,7 @@ export async function executeListarTodasOs(
         top6
           .map(
             (o) =>
-              `OS ${o.numero_os} (${o.status.replace(/_/g, ' ')}, total ${o.valor_total.toFixed(2)} reais)`,
+              `OS ${o.numero_os} (${formatStatusLabel(o.status)}, total ${o.valor_total.toFixed(2)} reais)`,
           )
           .join('; ') +
         `. E mais ${ordens.length - 6} ordens.`;
@@ -430,7 +468,7 @@ export async function executeConsultarDetalhesOs(
     const obsSnippet = d.observacoes ? ` Observação: ${d.observacoes.split('\n')[0]}.` : '';
     return {
       status: 'SUCCESS',
-      messageForSpeech: `Detalhes da OS ${d.numero_os}: cliente ${d.cliente_nome}${equipInfo}, status ${d.status.replace(/_/g, ' ')}, aberta há ${d.dias_aberta} dias.${obsSnippet} Possui ${d.produtos.length} produtos (${d.totais.total_produtos.toFixed(2)} reais) e ${d.servicos.length} serviços (${d.totais.total_servicos.toFixed(2)} reais), somando ${d.totais.valor_total.toFixed(2)} reais.`,
+      messageForSpeech: `Detalhes da OS ${d.numero_os}: cliente ${d.cliente_nome}${equipInfo}, status ${formatStatusLabel(d.status)}, aberta há ${d.dias_aberta} dias.${obsSnippet} Possui ${d.produtos.length} produtos (${d.totais.total_produtos.toFixed(2)} reais) e ${d.servicos.length} serviços (${d.totais.total_servicos.toFixed(2)} reais), somando ${d.totais.valor_total.toFixed(2)} reais.`,
       data: d,
       erpMode: userData.erpClient.mode,
       activeOsNumber: userData.activeOsNumber,

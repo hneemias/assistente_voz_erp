@@ -73,11 +73,26 @@ function calculateDaysOpen(dateStr: string, refDate = new Date('2026-11-16T15:00
 
 function mapSituationToStatus(situacao: string): StatusOS {
   const norm = normalizeText(situacao);
-  if (norm.includes('concluid') || norm.includes('finaliz')) return 'concluida';
+  if (norm.includes('finaliz')) return 'finalizado';
+  if (norm.includes('concluid')) return 'concluido';
   if (norm.includes('cancel')) return 'cancelada';
-  if (norm.includes('aguard')) return 'aguardando_pecas';
-  if (norm.includes('andamento')) return 'em_andamento';
-  return 'aberta';
+  if (norm.includes('nao aprovad') || norm.includes('reprovad')) return 'nao_aprovado';
+  if (norm.includes('terceiro')) return 'em_processo_terceiros';
+  if (norm.includes('autoriz') || norm.includes('aprovacao')) return 'aguardando_autorizacao';
+  if (norm.includes('peca')) return 'aguardando_peca';
+  if (norm.includes('processo') || norm.includes('andamento')) return 'em_processo';
+  return 'em_aberto';
+}
+
+export function normalizeStatusCanonical(status?: string): string | undefined {
+  if (!status) return undefined;
+  const s = status.toLowerCase().trim();
+  if (s === 'aberta' || s === 'em_aberto') return 'em_aberto';
+  if (s === 'em_andamento' || s === 'em_processo') return 'em_processo';
+  if (s === 'aguardando_pecas' || s === 'aguardando_peca') return 'aguardando_peca';
+  if (s === 'aguardando_aprovacao' || s === 'aguardando_autorizacao') return 'aguardando_autorizacao';
+  if (s === 'concluida' || s === 'concluido') return 'concluido';
+  return s;
 }
 
 function getCategoryForProduct(name: string): string {
@@ -598,9 +613,15 @@ export class ErpMockStore {
   }
 
   public listarOSAbertas(filtros?: FiltroOS): OrdemServicoResumo[] {
-    const abertas = Array.from(this.ordens.values()).filter(
-      (os) => os.status !== 'concluida' && os.status !== 'cancelada',
-    );
+    const abertas = Array.from(this.ordens.values()).filter((os) => {
+      const canonical = normalizeStatusCanonical(os.status);
+      return (
+        canonical !== 'finalizado' &&
+        canonical !== 'concluido' &&
+        canonical !== 'cancelada' &&
+        canonical !== 'nao_aprovado'
+      );
+    });
     return this.applyFiltroOS(abertas, filtros).map((os) => this.toResumo(os));
   }
 
@@ -615,7 +636,11 @@ export class ErpMockStore {
   ): OrdemServicoDetalhada[] {
     if (!filtros) return lista;
     const filtered = lista.filter((os) => {
-      if (filtros.status && os.status !== filtros.status) return false;
+      if (filtros.status) {
+        const target = normalizeStatusCanonical(filtros.status);
+        const current = normalizeStatusCanonical(os.status);
+        if (target !== current) return false;
+      }
       if (
         filtros.aberta_ha_mais_de_dias !== undefined &&
         os.dias_aberta <= filtros.aberta_ha_mais_de_dias
@@ -628,11 +653,16 @@ export class ErpMockStore {
       ) {
         return false;
       }
-      if (
-        filtros.apenas_nao_concluidas &&
-        (os.status === 'concluida' || os.status === 'cancelada')
-      ) {
-        return false;
+      if (filtros.apenas_nao_concluidas) {
+        const canonical = normalizeStatusCanonical(os.status);
+        if (
+          canonical === 'finalizado' ||
+          canonical === 'concluido' ||
+          canonical === 'cancelada' ||
+          canonical === 'nao_aprovado'
+        ) {
+          return false;
+        }
       }
       if (
         filtros.cliente &&

@@ -1,10 +1,19 @@
 export type StatusOS =
+  | 'em_aberto'
+  | 'em_processo'
+  | 'em_processo_terceiros'
+  | 'aguardando_autorizacao'
+  | 'aguardando_peca'
+  | 'concluido'
+  | 'finalizado'
+  | 'cancelada'
+  | 'nao_aprovado'
+  // Retrocompatibilidade / aliases
   | 'aberta'
   | 'em_andamento'
   | 'aguardando_pecas'
   | 'aguardando_aprovacao'
-  | 'concluida'
-  | 'cancelada';
+  | 'concluida';
 
 export interface ItemProdutoOS {
   item_id: string;

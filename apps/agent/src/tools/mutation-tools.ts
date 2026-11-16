@@ -15,13 +15,24 @@ import type { SessionUserData } from '../types/session-types.ts';
 import { logToolAudit } from '../utils/logger.ts';
 import { metrics } from '../utils/metrics.ts';
 
+import { formatStatusLabel } from './query-tools.ts';
+
 const statusOsEnum = z.enum([
+  'em_aberto',
+  'em_processo',
+  'em_processo_terceiros',
+  'aguardando_autorizacao',
+  'aguardando_peca',
+  'concluido',
+  'finalizado',
+  'cancelada',
+  'nao_aprovado',
+  // Retrocompatibilidade / aliases
   'aberta',
   'em_andamento',
   'aguardando_pecas',
   'aguardando_aprovacao',
   'concluida',
-  'cancelada',
 ]);
 
 export interface MutationToolResponse<T = unknown> {
@@ -122,7 +133,7 @@ export const alterarStatusOsSchema = z.object({
     .optional()
     .describe('Número da OS (ex: "3030"). Se omitido ou nulo, usa a OS ativa no contexto.'),
   status: statusOsEnum.describe(
-    'Novo status desejado para a OS: "aberta", "em_andamento", "aguardando_pecas", "aguardando_aprovacao", "concluida" ou "cancelada".',
+    'Novo status desejado para a OS: "em_aberto", "em_processo", "em_processo_terceiros", "aguardando_autorizacao", "aguardando_peca", "concluido" (serviço pronto aguardando pagamento), "finalizado" (serviço finalizado e pago), "cancelada" ou "nao_aprovado".',
   ),
   confirmado_pelo_usuario: z
     .boolean()
@@ -172,7 +183,7 @@ export async function executeAlterarStatusOs(
       const osAtual = await userData.erpClient.consultarOS(targetOs);
       setActiveOsContext(userData, targetOs, osAtual.data);
 
-      const summary = `Confirma a alteração do status da OS ${targetOs} (cliente ${osAtual.data.cliente_nome}) de ${osAtual.data.status.replace(/_/g, ' ')} para ${args.status.replace(/_/g, ' ')}?`;
+      const summary = `Confirma a alteração do status da OS ${targetOs} (cliente ${osAtual.data.cliente_nome}) de ${formatStatusLabel(osAtual.data.status)} para ${formatStatusLabel(args.status)}?`;
       const pending =
         gate.reason === 'SAME_TURN_APPROVAL_FORBIDDEN' && gate.pendingMutation
           ? gate.pendingMutation
@@ -254,7 +265,7 @@ export async function executeAlterarStatusOs(
 
     const modeSuffix =
       userData.erpClient.mode === 'mock' ? ' (registrado em modo de demonstração/mock).' : '.';
-    const speech = `Status da OS ${targetOs} atualizado com sucesso para ${res.data.status.replace(/_/g, ' ')}${modeSuffix}`;
+    const speech = `Status da OS ${targetOs} atualizado com sucesso para ${formatStatusLabel(res.data.status)}${modeSuffix}`;
 
     userData.executedMutations.set(pending.idempotencyKey, {
       idempotencyKey: pending.idempotencyKey,

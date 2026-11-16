@@ -234,7 +234,7 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       const os = res.data as any;
       expect(os.numero_os).toBe('4345');
       expect(os.cliente_nome).toBe('JEANE APARECIDA PIMENTA');
-      expect(os.status).toBe('aberta');
+      expect(os.status).toBe('em_aberto');
       expect(os.valor_total).toBe(60);
       expect(userData.activeOsNumber).toBe('4345');
     });
@@ -250,7 +250,7 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       expect(os.equipamento).toBe('IMPRESSORA');
       expect(os.modelo).toBe('L3250');
       expect(os.marca_equipamento).toBe('EPSON');
-      expect(os.status).toBe('aberta');
+      expect(os.status).toBe('em_aberto');
     });
 
     it('Consulta OS 4340 concluída com impressora de etiquetas HAYOM e valor total R$ 710,00', async () => {
@@ -261,7 +261,7 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       const os = res.data as any;
       expect(os.numero_os).toBe('4340');
       expect(os.cliente_nome).toBe('HERINA DOS SANTOS BORGES');
-      expect(os.status).toBe('concluida');
+      expect(os.status).toBe('concluido');
       expect(os.valor_total).toBe(710);
       expect(os.quantidade_itens).toBe(2);
     });
@@ -452,6 +452,39 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       const srv = os.servicos.find((s) => s.codigo === '1091');
       expect(srv).toBeDefined();
       expect(srv?.valor_unitario).toBe(100);
+    });
+
+    it('Diferencia os 9 status oficiais do ERP: concluido, finalizado, em_processo_terceiros, etc.', async () => {
+      const userData = createSessionUserData({ erpClient });
+      // OS 4341 no payload real é 'Finalizado'
+      const osFinalizada = await executeConsultarOs({ numero_os: '4341' }, userData);
+      expect(osFinalizada.data.status).toBe('finalizado');
+      expect(osFinalizada.messageForSpeech).toContain('finalizado');
+
+      // OS 4342 no payload real é 'Concluido' (serviço feito aguardando pagamento)
+      const osConcluida = await executeConsultarOs({ numero_os: '4342' }, userData);
+      expect(osConcluida.data.status).toBe('concluido');
+      expect(osConcluida.messageForSpeech).toContain('concluído (aguardando pagamento)');
+
+      // Altera OS 4345 para 'em_processo_terceiros' com 2 turnos
+      await executeAlterarStatusOs(
+        { numero_os: '4345', status: 'em_processo_terceiros', confirmado_pelo_usuario: false },
+        { userData },
+      );
+      advanceUserTurn(userData);
+      const resTerceiros = await executeAlterarStatusOs(
+        { numero_os: '4345', status: 'em_processo_terceiros', confirmado_pelo_usuario: true },
+        { userData },
+      );
+      expect(resTerceiros.status).toBe('COMMITTED');
+      expect(resTerceiros.messageForSpeech).toContain('em processo de terceiros');
+      expect(mockStore.consultarOS('4345').status).toBe('em_processo_terceiros');
+
+      // Verifica que listar_os_abertas não inclui finalizadas nem concluídas
+      const abertas = await executeListarOsAbertas({}, userData);
+      const numerosAbertas = abertas.data.ordens.map((o: any) => o.numero_os);
+      expect(numerosAbertas).not.toContain('4341'); // Finalizado
+      expect(numerosAbertas).not.toContain('4342'); // Concluido
     });
   });
 });

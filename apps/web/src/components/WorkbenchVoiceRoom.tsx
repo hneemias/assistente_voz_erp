@@ -258,11 +258,21 @@ export const WorkbenchVoiceRoom: React.FC<WorkbenchVoiceRoomProps> = ({
                   <span className="text-sm font-bold text-white">OS #{os.numero_os}</span>
                   <span
                     className={`text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase ${
-                      os.status === 'concluida'
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : os.status === 'aguardando_pecas'
-                        ? 'bg-amber-500/20 text-amber-400'
-                        : 'bg-cyan-500/20 text-cyan-400'
+                      os.status === 'finalizado'
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : os.status === 'concluido' || os.status === 'concluida'
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        : os.status === 'em_processo' || os.status === 'em_andamento'
+                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                        : os.status === 'em_processo_terceiros'
+                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                        : os.status === 'aguardando_peca' || os.status === 'aguardando_pecas'
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : os.status === 'aguardando_autorizacao' || os.status === 'aguardando_aprovacao'
+                        ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                        : os.status === 'cancelada' || os.status === 'nao_aprovado'
+                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                     }`}
                   >
                     {os.status.replace(/_/g, ' ')}
