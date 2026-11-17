@@ -118,25 +118,38 @@ inovar_assistente_voz/
 
 ## Como Executar Localmente
 
-Você precisará de 3 processos rodando em paralelo para a experiência completa:
+### Opção 1: Iniciar Tudo com 1 Único Comando (Recomendado)
+
+Você pode iniciar a API, o Agente de Voz e a Interface Web juntos de forma simultânea:
+
+- **No Windows**: Dê um duplo-clique no arquivo **`iniciar.bat`** na raiz do projeto;
+- **Ou via Terminal**:
+  ```bash
+  npm run dev
+  ```
+  *Esse comando inicializa a API (3001), o Worker do LiveKit Cloud e a Interface Web (5173) no mesmo console com logs coloridos e organizados.*
+
+---
+
+### Opção 2: Iniciar os Processos Individualmente
+
+Se preferir rodar cada serviço em um terminal separado:
 
 1. **Iniciar o Worker do Agente LiveKit**:
    ```bash
    npm run dev:agent
    ```
-   *O worker registrará no LiveKit Cloud e ficará aguardando participantes entrarem na sala.*
 
 2. **Iniciar o Servidor de Tokens e Métricas**:
    ```bash
    npm run dev:api
    ```
-   *Roda na porta `3001` (http://localhost:3001) para gerar tokens para o frontend.*
 
 3. **Iniciar a Interface Web de Bancada**:
    ```bash
    npm run dev:web
    ```
-   *Acesse `http://localhost:5173` no seu navegador.*
+   *Acesse `https://localhost:5173` no seu navegador.*
 
 ---
 

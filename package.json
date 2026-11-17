@@ -7,6 +7,7 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "dev:agent": "npm --workspace=@inovar/voice-erp-agent run dev",
     "dev:api": "npm --workspace=@inovar/voice-erp-agent run dev:api",
     "dev:web": "npm --workspace=@inovar/voice-erp-web run dev",
