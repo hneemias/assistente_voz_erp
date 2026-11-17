@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ErpNotFoundError, ErpValidationError } from '../integrations/erp/erp-errors.ts';
 import realOrdersData from '../integrations/erp/mock-data/real-erp-orders.json' with { type: 'json' };
 import type {
@@ -149,6 +150,19 @@ function getCategoryForProduct(name: string): string {
   return 'Geral';
 }
 
+function findRepoRoot(): string {
+  let cur = path.dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 6; i++) {
+    if (fs.existsSync(path.join(cur, 'package.json')) && fs.existsSync(path.join(cur, 'apps'))) {
+      return cur;
+    }
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return process.cwd();
+}
+
 const isTestEnv = process.env.VITEST === 'true' || process.env.NODE_ENV === 'test';
 
 export class ErpSqliteStore {
@@ -159,7 +173,7 @@ export class ErpSqliteStore {
   constructor(dbPath?: string) {
     const defaultPath = isTestEnv
       ? ':memory:'
-      : process.env.ERP_SQLITE_PATH || path.resolve(process.cwd(), 'data/erp_cache.sqlite');
+      : process.env.ERP_SQLITE_PATH || path.resolve(findRepoRoot(), 'data/erp_cache.sqlite');
     this.dbPath = dbPath || defaultPath;
 
     if (this.dbPath !== ':memory:') {

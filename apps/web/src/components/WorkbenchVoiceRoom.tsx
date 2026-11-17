@@ -241,7 +241,7 @@ export const WorkbenchVoiceRoom: React.FC<WorkbenchVoiceRoomProps> = ({
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
             <div className="flex items-center gap-2">
               <Layers className="w-5 h-5 text-cyan-400" />
-              <h3 className="font-semibold text-slate-100 text-sm">Ordens no ERP (Mock)</h3>
+              <h3 className="font-semibold text-slate-100 text-sm">Ordens no ERP (Cache SQLite)</h3>
             </div>
             <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
               {erpMapping?.sampleOrders.length ?? 0} registradas
