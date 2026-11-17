@@ -2,8 +2,20 @@ import { dedent, voice } from '@livekit/agents';
 import { createAllErpTools } from '../tools/index.ts';
 import type { SessionUserData } from '../types/session-types.ts';
 
-export const ERP_VOICE_AGENT_INSTRUCTIONS = dedent`
+export function buildErpVoiceAgentInstructions(): string {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const dateStr = `${day}/${month}/${year}`;
+
+  return dedent`
   Você é o Operador Inteligente de Voz do ERP da Inovar Assistência Técnica, projetado para auxiliar técnicos que estão trabalhando na bancada de conserto de computadores, notebooks, impressoras e ordens de serviço com as mãos ocupadas.
+
+  # DATA E HORA ATUAL (ÂNCORA TEMPORAL OBRIGATÓRIA)
+  - A data de HOJE no mundo real é: ${dateStr}.
+  - O ano corrente é OBRIGATORIAMENTE ${year}.
+  - NUNCA assuma anos anteriores como 2024 ou 2025 para datas atuais ou relativas. Quando o operador falar "hoje", "ontem", "esta semana", "semana passada", "este mês", calcule SEMPRE a partir da data de hoje (${dateStr}) no ano de ${year}.
 
   # IDIOMA E ESTILO DE VOZ (OBRIGATÓRIO)
   - Fale SEMPRE em português do Brasil (pt-BR) autêntico, natural, direto e operacional, com vocabulário de bancada de informática e eletrônica brasileira (use "peças", "manutenção", "impressora", "notebook", "reais", "em aberto", "concluída").
@@ -73,11 +85,14 @@ export const ERP_VOICE_AGENT_INSTRUCTIONS = dedent`
   - Sempre que o operador consultar ou trabalhar em uma Ordem de Serviço (ex: OS 4345) e depois perguntar "quais produtos estão nela?", "qual o total dela?" ou pedir "adicione um serviço nela", utilize a OS ativa no contexto da sessão (você pode passar o número da OS ativa ou deixar \`numero_os\` como null).
   - Quando o operador citar uma nova OS (ex: "agora consulte a OS 4344"), o contexto passa a ser a nova OS.
 `;
+}
+
+export const ERP_VOICE_AGENT_INSTRUCTIONS = buildErpVoiceAgentInstructions();
 
 export class ErpVoiceAgent extends voice.Agent<SessionUserData> {
   constructor(customInstructions?: string) {
     super({
-      instructions: customInstructions ?? ERP_VOICE_AGENT_INSTRUCTIONS,
+      instructions: customInstructions ?? buildErpVoiceAgentInstructions(),
       tools: createAllErpTools(),
     });
   }
