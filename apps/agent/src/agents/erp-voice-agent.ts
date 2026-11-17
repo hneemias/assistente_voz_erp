@@ -20,13 +20,17 @@ export const ERP_VOICE_AGENT_INSTRUCTIONS = dedent`
   - Se o operador perguntar sobre serviços ("quais serviços temos?", "quanto custa a formatação?", "temos reset de impressora?"), utilize SEMPRE as ferramentas \`listar_servicos\` ou \`buscar_servico_por_nome\`.
   - Se o operador perguntar sobre produtos ("quais produtos temos?", "temos tinta epson?", "tem fonte dell?"), utilize \`listar_produtos\` ou \`buscar_produto_por_nome\`.
 
-  # CONSULTAS DE ORDENS DE HOJE E DATAS
+  # CONSULTAS DE ORDENS, INTERVALOS E DATAS
   - Quando o operador perguntar "quais OS temos com a data de hoje?", "quais ordens foram abertas hoje?" ou "quais OS temos hoje?", chame \`listar_todas_os\` passando \`apenas_hoje: true\` ou \`data: "hoje"\` para listar todas as ordens registradas no dia (tanto abertas quanto concluídas).
   - Se perguntar especificamente por ordens em aberto de hoje, use \`listar_os_abertas\` com \`apenas_hoje: true\`.
-  - Relate todas as ordens encontradas no retorno da ferramenta para que o técnico tenha o panorama completo do dia.
+  - Se o operador perguntar por ordens de uma data específica (ex: "ordens do dia 10", "do dia 14/11"), passe o parâmetro \`data\` (ex: "10/11/2026").
+  - Se o operador perguntar por um intervalo de datas (ex: "ordens da semana passada", "ordens entre o dia 08 e 16", "do dia 10 até hoje"), calcule o intervalo e passe \`data_inicio\` e \`data_fim\` para \`listar_todas_os\` ou \`listar_os_abertas\`. Se esses dados já foram sincronizados anteriormente, eles são consultados instantaneamente da memória.
+  - Se o operador consultar uma OS específica que não estiver no histórico carregado, a ferramenta avisará que não encontrou e perguntará se ele deseja buscar no sistema Inovar Fiscal. Se o técnico concordar ("sim, busca", "sincronize", "pesquise"), chame imediatamente \`sincronizar_erp\`.
+  - Relate todas as ordens encontradas no retorno da ferramenta para que o técnico tenha o panorama completo do dia ou período.
 
   # SINCRONIZAÇÃO COM O INOVAR FISCAL ERP
   - Quando o operador disser "atualize as ordens", "sincronize com o ERP", "puxe as OSs do sistema" ou similar, chame a ferramenta \`sincronizar_erp\`.
+  - Se o operador especificar um período para sincronizar (ex: "atualize as OS da semana passada", "puxe as ordens do dia 08 até hoje", "sincronize o mês de novembro"), calcule \`data_inicio\` e \`data_fim\` no formato DD/MM/AAAA e passe para \`sincronizar_erp\`. Se não especificar datas, o padrão da ferramenta é sincronizar os últimos 7 dias.
   - A ferramenta enfileira a extração de dados no Inovar Fiscal em segundo plano. Responda imediatamente ao técnico informando que a sincronização foi iniciada e que você avisará assim que os dados forem concluídos.
   - Não pare a conversa nem fique esperando: você pode continuar atendendo qualquer outra solicitação do técnico normalmente.
 

@@ -42,6 +42,44 @@ function parseBrazilianCurrency(val: string | number): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
+function toIsoDate(dateStr: string): string | null {
+  const norm = normalizeText(dateStr);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  if (norm === 'hoje' || norm === 'data de hoje') {
+    return todayIso;
+  }
+  const clean = dateStr.replace(/[\/\.]/g, '-').trim();
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    if (parts[0]!.length === 4) {
+      return clean; // YYYY-MM-DD
+    } else {
+      return `${parts[2]}-${parts[1]!.padStart(2, '0')}-${parts[0]!.padStart(2, '0')}`;
+    }
+  }
+  if (parts.length === 2) {
+    return `2026-${parts[1]!.padStart(2, '0')}-${parts[0]!.padStart(2, '0')}`;
+  }
+  return null;
+}
+
+function isWithinDateRange(dataAberturaIso: string, dataInicio?: string, dataFim?: string): boolean {
+  const osDateIso = dataAberturaIso.slice(0, 10);
+  if (dataInicio) {
+    const startIso = toIsoDate(dataInicio);
+    if (startIso && osDateIso < startIso) {
+      return false;
+    }
+  }
+  if (dataFim) {
+    const endIso = toIsoDate(dataFim);
+    if (endIso && osDateIso > endIso) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function matchesDateFilter(dataAberturaIso: string, dateFilter: string): boolean {
   const norm = normalizeText(dateFilter);
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -682,6 +720,12 @@ export class ErpMockStore {
         return false;
       }
       if (filtros.data && !matchesDateFilter(os.data_abertura, filtros.data)) {
+        return false;
+      }
+      if (
+        (filtros.data_inicio || filtros.data_fim) &&
+        !isWithinDateRange(os.data_abertura, filtros.data_inicio, filtros.data_fim)
+      ) {
         return false;
       }
       return true;

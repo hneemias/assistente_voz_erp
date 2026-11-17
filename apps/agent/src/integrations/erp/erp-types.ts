@@ -183,6 +183,8 @@ export interface FiltroOS {
   limite?: number;
   apenas_hoje?: boolean;
   data?: string;
+  data_inicio?: string;
+  data_fim?: string;
 }
 
 export interface FiltroProdutos {

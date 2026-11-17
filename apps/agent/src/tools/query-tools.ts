@@ -163,6 +163,28 @@ export async function executeConsultarOs(
       activeOsNumber: userData.activeOsNumber,
     };
   } catch (err) {
+    if (err instanceof ErpError && (err.code === 'ERP_NOT_FOUND' || err.httpStatus === 404)) {
+      const durationMs = Math.max(1, Date.now() - startTime);
+      metrics.recordToolCall({ toolName: 'consultar_os', durationMs, outcome: 'ERROR' });
+      logToolAudit({
+        sessionId: userData.sessionId,
+        userId: userData.userId,
+        intent: 'consultar_status_resumo_os',
+        toolName: 'consultar_os',
+        durationMs,
+        httpStatus: 404,
+        operationResult: 'ERROR',
+        osNumber: targetOs,
+        erpMode: userData.erpClient.mode,
+      });
+      return {
+        status: 'NOT_FOUND',
+        messageForSpeech: `Não encontrei a OS ${targetOs} no histórico carregado. Deseja que eu faça uma busca e sincronize direto com o sistema Inovar Fiscal?`,
+        data: { numero_os: targetOs },
+        erpMode: userData.erpClient.mode,
+        activeOsNumber: userData.activeOsNumber,
+      };
+    }
     return handleQueryError(
       err,
       'consultar_os',
@@ -203,6 +225,16 @@ export const listarOsAbertasSchema = z.object({
     .nullable()
     .optional()
     .describe('Data específica para filtrar as ordens (ex: "hoje", "16/11/2026", "10/11/2026").'),
+  data_inicio: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data inicial para filtrar ordens de um intervalo no formato DD/MM/AAAA.'),
+  data_fim: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data final para filtrar ordens de um intervalo no formato DD/MM/AAAA.'),
 });
 
 export async function executeListarOsAbertas(
@@ -219,6 +251,8 @@ export async function executeListarOsAbertas(
       cliente: args.cliente ?? undefined,
       apenas_hoje: args.apenas_hoje ?? undefined,
       data: args.data ?? undefined,
+      data_inicio: args.data_inicio ?? undefined,
+      data_fim: args.data_fim ?? undefined,
     };
     const res = await userData.erpClient.listarOSAbertas(filtros, { signal: abortSignal });
     const durationMs = Math.max(1, Date.now() - startTime);
@@ -331,6 +365,16 @@ export const listarTodasOsSchema = z.object({
     .nullable()
     .optional()
     .describe('Data específica para filtrar as ordens (ex: "hoje", "16/11/2026", "10/11/2026").'),
+  data_inicio: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data inicial para filtrar ordens de um intervalo no formato DD/MM/AAAA.'),
+  data_fim: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data final para filtrar ordens de um intervalo no formato DD/MM/AAAA.'),
 });
 
 export async function executeListarTodasOs(
@@ -348,6 +392,8 @@ export async function executeListarTodasOs(
       cliente: args.cliente ?? undefined,
       apenas_hoje: args.apenas_hoje ?? undefined,
       data: args.data ?? undefined,
+      data_inicio: args.data_inicio ?? undefined,
+      data_fim: args.data_fim ?? undefined,
     };
     const res = await userData.erpClient.listarTodasOS(filtros, { signal: abortSignal });
     const durationMs = Math.max(1, Date.now() - startTime);

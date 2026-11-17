@@ -495,5 +495,25 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       expect(res.messageForSpeech).toContain('Iniciei a sincronização com o Inovar Fiscal em segundo plano');
       expect(res.data).toBeDefined();
     });
+
+    it('Filtra ordens por intervalo de datas (data_inicio e data_fim)', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeListarTodasOs({ data_inicio: '10/11/2026', data_fim: '16/11/2026' }, userData);
+      expect(res.status).toBe('SUCCESS');
+      const ordens = (res.data as any).ordens;
+      expect(ordens.length).toBeGreaterThan(0);
+      for (const o of ordens) {
+        const d = o.data_abertura.slice(0, 10);
+        expect(d >= '2026-11-10' && d <= '2026-11-16').toBe(true);
+      }
+    });
+
+    it('Quando a OS não é encontrada, avisa e sugere busca/sincronização no Inovar Fiscal', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeConsultarOs({ numero_os: '999999' }, userData);
+      expect(res.status).toBe('NOT_FOUND');
+      expect(res.messageForSpeech).toContain('Não encontrei a OS 999999 no histórico carregado');
+      expect(res.messageForSpeech).toContain('Deseja que eu faça uma busca e sincronize direto com o sistema Inovar Fiscal?');
+    });
   });
 });
