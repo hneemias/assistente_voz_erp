@@ -23,6 +23,7 @@ const envSchema = z.object({
   // ERP Integration
   ERP_MODE: z.enum(['mock', 'live']).default('mock'),
   ERP_API_BASE_URL: z.string().default('http://localhost:4000/api/v1'),
+  INOVAR_FISCAL_API_URL: z.string().default('http://localhost:3010'),
   ERP_API_TOKEN: z.string().default(''),
   ERP_AUTH_TYPE: z.enum(['bearer', 'api-key', 'basic']).default('bearer'),
   ERP_API_KEY_HEADER: z.string().default('X-API-Key'),

@@ -7,6 +7,7 @@ import {
   setActiveOsContext,
 } from '../services/context-manager.ts';
 import type { SessionUserData } from '../types/session-types.ts';
+import { inovarFiscalSyncService } from '../services/inovar-fiscal-sync.ts';
 import { logToolAudit } from '../utils/logger.ts';
 import { metrics } from '../utils/metrics.ts';
 
@@ -1007,10 +1008,70 @@ export async function executeListarItensOs(
 }
 
 // ============================================================================
+// 11. sincronizar_erp(data_inicio, data_fim)
+// ============================================================================
+export const sincronizarErpSchema = z.object({
+  data_inicio: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data inicial para buscar ordens no formato DD/MM/AAAA. Se omitido, usa os últimos 7 dias.'),
+  data_fim: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data final no formato DD/MM/AAAA. Se omitido, usa a data de hoje.'),
+});
+
+export async function executeSincronizarErp(
+  args: z.infer<typeof sincronizarErpSchema>,
+  userData: SessionUserData,
+): Promise<ToolResponse> {
+  const startTime = Date.now();
+  try {
+    const res = await inovarFiscalSyncService.triggerSync({
+      startDate: args.data_inicio ?? undefined,
+      endDate: args.data_fim ?? undefined,
+    });
+    const durationMs = Math.max(1, Date.now() - startTime);
+
+    metrics.recordToolCall({ toolName: 'sincronizar_erp', durationMs, outcome: 'SUCCESS' });
+    logToolAudit({
+      sessionId: userData.sessionId,
+      userId: userData.userId,
+      intent: 'sincronizar_erp',
+      toolName: 'sincronizar_erp',
+      durationMs,
+      operationResult: 'SUCCESS',
+      erpMode: userData.erpClient.mode,
+    });
+
+    return {
+      status: 'SUCCESS',
+      messageForSpeech:
+        'Iniciei a sincronização com o Inovar Fiscal em segundo plano. Assim que terminar a extração eu te aviso aqui.',
+      data: res,
+      erpMode: userData.erpClient.mode,
+      activeOsNumber: userData.activeOsNumber,
+    };
+  } catch (err) {
+    return handleQueryError(err, 'sincronizar_erp', 'sincronizar_erp', userData, startTime);
+  }
+}
+
+// ============================================================================
 // BUILD LIVEKIT FUNCTION TOOLS FOR AGENT
 // ============================================================================
 export function createQueryTools() {
   return [
+    llm.tool({
+      name: 'sincronizar_erp',
+      description:
+        'Dispara uma sincronização em segundo plano das Ordens de Serviço diretamente com o Inovar Fiscal ERP. Use quando o operador pedir "atualize as ordens", "sincronize com o ERP", "puxe as últimas OSs do sistema" ou similar. A sincronização roda em background e o assistente avisará quando concluir assim que houver um momento de pausa.',
+      parameters: sincronizarErpSchema,
+      execute: async (args, { ctx }: llm.ToolOptions<SessionUserData>) =>
+        executeSincronizarErp(args, ctx.userData),
+    }),
     llm.tool({
       name: 'consultar_os',
       description:

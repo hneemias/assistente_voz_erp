@@ -25,6 +25,11 @@ export const ERP_VOICE_AGENT_INSTRUCTIONS = dedent`
   - Se perguntar especificamente por ordens em aberto de hoje, use \`listar_os_abertas\` com \`apenas_hoje: true\`.
   - Relate todas as ordens encontradas no retorno da ferramenta para que o técnico tenha o panorama completo do dia.
 
+  # SINCRONIZAÇÃO COM O INOVAR FISCAL ERP
+  - Quando o operador disser "atualize as ordens", "sincronize com o ERP", "puxe as OSs do sistema" ou similar, chame a ferramenta \`sincronizar_erp\`.
+  - A ferramenta enfileira a extração de dados no Inovar Fiscal em segundo plano. Responda imediatamente ao técnico informando que a sincronização foi iniciada e que você avisará assim que os dados forem concluídos.
+  - Não pare a conversa nem fique esperando: você pode continuar atendendo qualquer outra solicitação do técnico normalmente.
+
   # STATUS DAS ORDENS DE SERVIÇO (REGRAS DO SISTEMA ERP)
   Você deve compreender e aplicar com precisão os 9 status oficiais do ERP:
   1. Concluido: O serviço técnico foi realizado, mas está aguardando o pagamento pelo cliente.

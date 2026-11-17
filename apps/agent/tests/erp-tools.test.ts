@@ -13,6 +13,7 @@ import {
   executeConsultarEstoque,
   executeConsultarTotalOs,
   executeListarItensOs,
+  executeSincronizarErp,
 } from '../src/tools/query-tools.ts';
 import {
   executeAlterarStatusOs,
@@ -485,6 +486,14 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       const numerosAbertas = (abertas.data as any).ordens.map((o: any) => o.numero_os);
       expect(numerosAbertas).not.toContain('4341'); // Finalizado
       expect(numerosAbertas).not.toContain('4342'); // Concluido
+    });
+
+    it('Dispara sincronização em segundo plano via sincronizar_erp sem bloquear a conversa', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeSincronizarErp({ data_inicio: '10/11/2026', data_fim: '17/11/2026' }, userData);
+      expect(res.status).toBe('SUCCESS');
+      expect(res.messageForSpeech).toContain('Iniciei a sincronização com o Inovar Fiscal em segundo plano');
+      expect(res.data).toBeDefined();
     });
   });
 });

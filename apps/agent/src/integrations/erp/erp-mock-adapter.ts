@@ -405,8 +405,15 @@ export class ErpMockStore {
       ],
     }));
 
-    // Ingestão das 26 Ordens de Serviço reais extraídas do ERP de produção
-    for (const raw of realOrdersData.result) {
+    // Ingestão inicial das Ordens de Serviço do mock
+    this.ingestRawOrders(realOrdersData.result);
+  }
+
+  public ingestRawOrders(rawOrders: any[]): number {
+    let count = 0;
+    for (const raw of rawOrders || []) {
+      if (!raw || !raw.numero) continue;
+      count++;
       const osServicos: ItemServicoOS[] = [];
       const osProdutos: ItemProdutoOS[] = [];
 
@@ -499,6 +506,7 @@ export class ErpMockStore {
         }),
       );
     }
+    return count;
   }
 
   private buildOrdem(params: {

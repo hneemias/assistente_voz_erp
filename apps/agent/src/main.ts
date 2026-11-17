@@ -15,6 +15,7 @@ import { onErpSimulationEnd, setupErpSimulation } from './agents/simulation.ts';
 import { createAiProviders } from './config/ai-providers.ts';
 import { env } from './config/env.ts';
 import { createSessionUserData } from './services/context-manager.ts';
+import { attachSessionToIdleNotifier } from './services/idle-notifier.ts';
 import type { SessionUserData } from './types/session-types.ts';
 import http from 'node:http';
 import { createSessionLogger, logger } from './utils/logger.ts';
@@ -98,6 +99,10 @@ export default defineAgent({
       agent: createErpVoiceAgent(),
       room: ctx.room,
     });
+
+    // Conecta o notificador proativo para avisos amigáveis em momentos IDLE
+    const detachNotifier = attachSessionToIdleNotifier(session);
+    ctx.room.on('disconnected', () => detachNotifier());
 
     await ctx.connect();
 
