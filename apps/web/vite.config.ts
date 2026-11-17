@@ -12,6 +12,18 @@ export default defineConfig({
   server: {
     host: true, // Libera acesso por 0.0.0.0 (rede local / celular)
     port: 5173,
+    watch: {
+      ignored: [
+        '**/data/**',
+        '**/*.sqlite*',
+        '**/*.sqlite-wal',
+        '**/*.sqlite-shm',
+        '**/*.sqlite-journal',
+        '**/apps/agent/**',
+        '**/.git/**',
+        '**/*.log',
+      ],
+    },
     headers: {
       'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
       Pragma: 'no-cache',
