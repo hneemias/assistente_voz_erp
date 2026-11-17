@@ -496,6 +496,14 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       expect(res.data).toBeDefined();
     });
 
+    it('Dispara busca pontual de OS específica via sincronizar_erp com numero_os', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeSincronizarErp({ numero_os: '4350' }, userData);
+      expect(res.status).toBe('SUCCESS');
+      expect(res.messageForSpeech).toContain('Iniciei a busca da OS 4350 no Inovar Fiscal em segundo plano');
+      expect(res.data).toBeDefined();
+    });
+
     it('Filtra ordens por intervalo de datas (data_inicio e data_fim)', async () => {
       const userData = createSessionUserData({ erpClient });
       const res = await executeListarTodasOs({ data_inicio: '10/11/2026', data_fim: '16/11/2026' }, userData);

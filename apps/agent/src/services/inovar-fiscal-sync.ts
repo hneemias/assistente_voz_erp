@@ -46,6 +46,7 @@ export class InovarFiscalSyncService {
   public async triggerSync(options?: {
     startDate?: string;
     endDate?: string;
+    numeroOs?: string;
   }): Promise<{ jobId: string; status: string; message: string }> {
     if (this.isSyncing && this.currentJobId) {
       return {
@@ -55,16 +56,22 @@ export class InovarFiscalSyncService {
       };
     }
 
-    const today = new Date();
-    const defaultStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const cleanNumero = options?.numeroOs ? String(options.numeroOs).trim().replace(/^#/, '') : undefined;
+    let url: string;
 
-    const start = options?.startDate ?? this.formatDateBrazilian(defaultStart);
-    const end = options?.endDate ?? this.formatDateBrazilian(today);
-
-    logger.info({ start, end, baseUrl: this.baseUrl }, '[InovarFiscalSync] Disparando extração de OSs...');
+    if (cleanNumero) {
+      url = `${this.baseUrl}/api/service-orders?numero=${encodeURIComponent(cleanNumero)}`;
+      logger.info({ numeroOs: cleanNumero, baseUrl: this.baseUrl }, '[InovarFiscalSync] Disparando busca pontual da OS no ERP...');
+    } else {
+      const today = new Date();
+      const defaultStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const start = options?.startDate ?? this.formatDateBrazilian(defaultStart);
+      const end = options?.endDate ?? this.formatDateBrazilian(today);
+      url = `${this.baseUrl}/api/service-orders?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+      logger.info({ start, end, baseUrl: this.baseUrl }, '[InovarFiscalSync] Disparando extração de OSs por período...');
+    }
 
     try {
-      const url = `${this.baseUrl}/api/service-orders?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
       const res = await fetch(url);
 
       if (!res.ok) {
@@ -75,15 +82,17 @@ export class InovarFiscalSyncService {
       this.isSyncing = true;
       this.currentJobId = data.jobId;
 
-      logger.info({ jobId: data.jobId }, '[InovarFiscalSync] Job enfileirado com sucesso. Iniciando monitoramento em background...');
+      logger.info({ jobId: data.jobId, numeroOs: cleanNumero }, '[InovarFiscalSync] Job enfileirado com sucesso. Iniciando monitoramento em background...');
 
       // Inicia polling assíncrono em background sem bloquear
-      this.startPolling(data.jobId);
+      this.startPolling(data.jobId, cleanNumero);
 
       return {
         jobId: data.jobId,
         status: data.status,
-        message: 'Sincronização iniciada em segundo plano.',
+        message: cleanNumero
+          ? `Busca da OS ${cleanNumero} iniciada em segundo plano.`
+          : 'Sincronização iniciada em segundo plano.',
       };
     } catch (err) {
       this.isSyncing = false;
@@ -93,7 +102,7 @@ export class InovarFiscalSyncService {
     }
   }
 
-  private startPolling(jobId: string): void {
+  private startPolling(jobId: string, targetNumeroOs?: string): void {
     if (this.pollIntervalTimer) {
       clearInterval(this.pollIntervalTimer);
       this.pollIntervalTimer = null;
@@ -125,14 +134,26 @@ export class InovarFiscalSyncService {
           this.lastSyncCount = count;
 
           logger.info(
-            { jobId, totalOrdens: count, durationMs: Date.now() - startTime },
+            { jobId, targetNumeroOs, totalOrdens: count, durationMs: Date.now() - startTime },
             '[InovarFiscalSync] Sincronização concluída com sucesso! Base de dados local atualizada.',
           );
 
           // Enfileira anúncio amigável para quando o técnico e o assistente estiverem IDLE
-          queueIdleAnnouncement(
-            `Só para avisar: a atualização dos dados com o ERP foi concluída com sucesso. Agora temos ${count} ordens sincronizadas.`
-          );
+          if (targetNumeroOs) {
+            if (count > 0) {
+              queueIdleAnnouncement(
+                `Só para te avisar: a busca da OS ${targetNumeroOs} no Inovar Fiscal foi concluída! Já atualizei os dados dela aqui na bancada.`
+              );
+            } else {
+              queueIdleAnnouncement(
+                `Só para te avisar: a busca da OS ${targetNumeroOs} no Inovar Fiscal foi concluída, mas essa ordem não foi encontrada no sistema.`
+              );
+            }
+          } else {
+            queueIdleAnnouncement(
+              `Só para avisar: a atualização dos dados com o ERP foi concluída com sucesso. Agora temos ${count} ordens sincronizadas.`
+            );
+          }
         } else if (job.status === 'FAILED') {
           if (this.pollIntervalTimer) clearInterval(this.pollIntervalTimer);
           this.isSyncing = false;

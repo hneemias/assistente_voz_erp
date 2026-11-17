@@ -1054,19 +1054,26 @@ export async function executeListarItensOs(
 }
 
 // ============================================================================
-// 11. sincronizar_erp(data_inicio, data_fim)
+// 11. sincronizar_erp(numero_os, data_inicio, data_fim)
 // ============================================================================
 export const sincronizarErpSchema = z.object({
+  numero_os: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(
+      'Número de uma Ordem de Serviço específica (ex: "4350" ou "3030") para buscar e sincronizar pontualmente no Inovar Fiscal. Use quando o operador pedir para buscar uma OS específica ou após confirmar a busca de uma OS não encontrada no cache.',
+    ),
   data_inicio: z
     .string()
     .nullable()
     .optional()
-    .describe('Data inicial para buscar ordens no formato DD/MM/AAAA. Se omitido, usa os últimos 7 dias.'),
+    .describe('Data inicial para buscar ordens no formato DD/MM/AAAA. Se omitido e nenhum numero_os for informado, usa os últimos 7 dias.'),
   data_fim: z
     .string()
     .nullable()
     .optional()
-    .describe('Data final no formato DD/MM/AAAA. Se omitido, usa a data de hoje.'),
+    .describe('Data final no formato DD/MM/AAAA. Se omitido e nenhum numero_os for informado, usa a data de hoje.'),
 });
 
 export async function executeSincronizarErp(
@@ -1076,6 +1083,7 @@ export async function executeSincronizarErp(
   const startTime = Date.now();
   try {
     const res = await inovarFiscalSyncService.triggerSync({
+      numeroOs: args.numero_os ?? undefined,
       startDate: args.data_inicio ?? undefined,
       endDate: args.data_fim ?? undefined,
     });
@@ -1089,19 +1097,23 @@ export async function executeSincronizarErp(
       toolName: 'sincronizar_erp',
       durationMs,
       operationResult: 'SUCCESS',
+      osNumber: args.numero_os ?? undefined,
       erpMode: userData.erpClient.mode,
     });
 
+    const speechMsg = args.numero_os
+      ? `Iniciei a busca da OS ${args.numero_os} no Inovar Fiscal em segundo plano. Assim que concluir eu te aviso.`
+      : 'Iniciei a sincronização com o Inovar Fiscal em segundo plano. Assim que terminar a extração eu te aviso aqui.';
+
     return {
       status: 'SUCCESS',
-      messageForSpeech:
-        'Iniciei a sincronização com o Inovar Fiscal em segundo plano. Assim que terminar a extração eu te aviso aqui.',
+      messageForSpeech: speechMsg,
       data: res,
       erpMode: userData.erpClient.mode,
       activeOsNumber: userData.activeOsNumber,
     };
   } catch (err) {
-    return handleQueryError(err, 'sincronizar_erp', 'sincronizar_erp', userData, startTime);
+    return handleQueryError(err, 'sincronizar_erp', 'sincronizar_erp', userData, startTime, args.numero_os ?? undefined);
   }
 }
 
@@ -1113,7 +1125,7 @@ export function createQueryTools() {
     llm.tool({
       name: 'sincronizar_erp',
       description:
-        'Dispara uma sincronização em segundo plano das Ordens de Serviço diretamente com o Inovar Fiscal ERP. Use quando o operador pedir "atualize as ordens", "sincronize com o ERP", "puxe as últimas OSs do sistema" ou similar. A sincronização roda em background e o assistente avisará quando concluir assim que houver um momento de pausa.',
+        'Dispara uma sincronização ou busca em segundo plano diretamente com o Inovar Fiscal ERP. Use quando o operador pedir "atualize as ordens", "sincronize com o ERP", "puxe as últimas OSs do sistema", OU quando solicitar a busca de uma OS específica ("pesquise a OS 4350 no sistema") ou após o operador confirmar a busca de uma OS que não foi encontrada no cache local. A busca roda em background e o assistente avisará quando concluir assim que houver um momento de pausa.',
       parameters: sincronizarErpSchema,
       execute: async (args, { ctx }: llm.ToolOptions<SessionUserData>) =>
         executeSincronizarErp(args, ctx.userData),
