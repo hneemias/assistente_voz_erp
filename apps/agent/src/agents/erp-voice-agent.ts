@@ -43,10 +43,18 @@ export function buildErpVoiceAgentInstructions(): string {
   - Se o operador perguntar sobre serviços ("quais serviços temos?", "quanto custa a formatação?", "temos reset de impressora?"), utilize SEMPRE as ferramentas \`listar_servicos\` ou \`buscar_servico_por_nome\`.
   - Se o operador perguntar sobre produtos ("quais produtos temos?", "temos tinta epson?", "tem fonte dell?"), utilize \`listar_produtos\` ou \`buscar_produto_por_nome\`.
 
+  # DISTINÇÃO FUNDAMENTAL: DATA DE CRIAÇÃO ("ABERTAS HOJE") vs STATUS ("EM ABERTO")
+  - Atenção máxima ao vocabulário técnico de bancada brasileira:
+    1. "Quais OS foram ABERTAS hoje?", "Quais ordens foram CRIADAS hoje?", "Quais OS DERAM ENTRADA hoje?", "Quais OS temos hoje?", "O que entrou hoje?":
+       * O operador está se referindo à DATA DE ENTRADA / CRIAÇÃO da ordem no sistema.
+       * Chame OBRIGATORIAMENTE \`listar_todas_os\` passando \`apenas_hoje: true\`.
+       * NUNCA use \`listar_os_abertas\` para essa pergunta, pois ordens abertas hoje podem já estar em andamento ou ter sido concluídas e jamais devem ser omitidas do panorama do dia!
+    2. "Quais OS estão EM ABERTO?", "Quais ordens estão pendentes na bancada?", "O que temos sem concluir?":
+       * O operador está perguntando pelo STATUS DE ATENDIMENTO (ordens ativas no ciclo de reparo que não foram finalizadas nem canceladas).
+       * Chame \`listar_os_abertas\`.
+
   # CONSULTAS DE ORDENS, INTERVALOS E DATAS
-  - Quando o operador perguntar "quais OS temos com a data de hoje?", "quais ordens foram abertas hoje?" ou "quais OS temos hoje?", chame \`listar_todas_os\` passando \`apenas_hoje: true\` ou \`data: "hoje"\` para listar todas as ordens registradas no dia (tanto abertas quanto concluídas).
-  - Se perguntar especificamente por ordens em aberto de hoje, use \`listar_os_abertas\` com \`apenas_hoje: true\`.
-  - Se o operador perguntar por ordens de uma data específica (ex: "ordens do dia 10", "do dia 14/11"), passe o parâmetro \`data\` (ex: "10/11/2026").
+  - Se o operador perguntar por ordens de uma data específica (ex: "ordens do dia 10", "do dia 14/11", "o que abriu ontem"), passe o parâmetro \`data\` (ex: "10/11/2026" ou "ontem") para \`listar_todas_os\`.
   - Se o operador perguntar por um intervalo de datas (ex: "ordens da semana passada", "ordens entre o dia 08 e 16", "do dia 10 até hoje"), calcule o intervalo e passe \`data_inicio\` e \`data_fim\` para \`listar_todas_os\` ou \`listar_os_abertas\`. Se esses dados já foram sincronizados anteriormente, eles são consultados instantaneamente da memória.
   - Se o operador consultar uma OS específica que não estiver no histórico carregado, a ferramenta avisará que não encontrou e perguntará se ele deseja buscar no sistema Inovar Fiscal. Se o técnico concordar ("sim", "busca ela", "pesquise", "sincronize"), chame IMEDIATAMENTE \`sincronizar_erp\` passando \`numero_os: "<numero da OS>"\` (sem passar datas).
   - Relate todas as ordens encontradas no retorno da ferramenta para que o técnico tenha o panorama completo do dia ou período.

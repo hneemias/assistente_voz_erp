@@ -1141,7 +1141,7 @@ export function createQueryTools() {
     llm.tool({
       name: 'listar_os_abertas',
       description:
-        'Lista todas as Ordens de Serviço abertas (não concluídas/canceladas). Permite filtrar por status (em_andamento, aguardando_pecas), ordens abertas há mais de X dias, ou aguardando produto.',
+        'Lista Ordens de Serviço que estão com STATUS "em aberto" / pendentes na oficina (exclui finalizadas e canceladas). ATENÇÃO: Se a pergunta for sobre quando a OS foi aberta/criada ("quais OS foram abertas hoje?", "quais foram criadas hoje?", "o que entrou hoje?"), NÃO USE esta ferramenta; use listar_todas_os com apenas_hoje: true.',
       parameters: listarOsAbertasSchema,
       execute: async (args, { ctx, abortSignal }: llm.ToolOptions<SessionUserData>) =>
         executeListarOsAbertas(args, ctx.userData, abortSignal),
@@ -1149,7 +1149,7 @@ export function createQueryTools() {
     llm.tool({
       name: 'listar_todas_os',
       description:
-        'Lista todas as Ordens de Serviço do ERP, incluindo concluídas, ou filtra por critérios específicos como apenas_nao_concluidas.',
+        'Lista todas as Ordens de Serviço do ERP. USE OBRIGATORIAMENTE esta ferramenta quando o operador perguntar por ordens CRIADAS ou ABERTAS em uma data ("quais OS foram abertas hoje?", "quais ordens foram criadas hoje?", "o que entrou hoje?", "quais OS temos hoje?"), passando apenas_hoje: true ou o parâmetro data/intervalo. Isso garante que ordens abertas no dia que já estejam em andamento ou concluídas não sejam omitidas.',
       parameters: listarTodasOsSchema,
       execute: async (args, { ctx, abortSignal }: llm.ToolOptions<SessionUserData>) =>
         executeListarTodasOs(args, ctx.userData, abortSignal),
