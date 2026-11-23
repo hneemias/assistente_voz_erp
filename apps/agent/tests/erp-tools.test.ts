@@ -520,6 +520,17 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       }
     });
 
+    it('Filtra ordens por data específica aceitando formatos variados como dia 14 ou DD/MM', async () => {
+      const userData = createSessionUserData({ erpClient });
+      const res = await executeListarTodasOs({ data: '14/11/2026' }, userData);
+      expect(res.status).toBe('SUCCESS');
+      const ordens = (res.data as any).ordens;
+      expect(ordens.length).toBeGreaterThan(0);
+      for (const o of ordens) {
+        expect(o.data_abertura).toContain('2026-11-14');
+      }
+    });
+
     it('Quando a OS não é encontrada, avisa e sugere busca/sincronização no Inovar Fiscal', async () => {
       const userData = createSessionUserData({ erpClient });
       const res = await executeConsultarOs({ numero_os: '999999' }, userData);

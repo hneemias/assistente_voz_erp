@@ -91,6 +91,17 @@ export function parseDateFilterToIso(dateStr: string): string | null {
     return getRelativeIsoDateSaoPaulo(-2);
   }
 
+  // Suporte a "dia 10", "10", "dia 05" (assume mês e ano correntes de Brasília)
+  const matchSingleDay = s.match(/^(?:dia\s+)?(\d{1,2})$/);
+  if (matchSingleDay) {
+    const dayNum = parseInt(matchSingleDay[1]!, 10);
+    if (dayNum >= 1 && dayNum <= 31) {
+      const currentIso = getIsoDateSaoPaulo(); // YYYY-MM-DD
+      const [currentYear, currentMonth] = currentIso.split('-');
+      return `${currentYear}-${currentMonth}-${String(dayNum).padStart(2, '0')}`;
+    }
+  }
+
   const clean = s.replace(/[\/\.]/g, '-');
   const parts = clean.split('-');
   if (parts.length === 3) {
