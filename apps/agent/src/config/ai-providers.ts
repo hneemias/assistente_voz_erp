@@ -27,9 +27,9 @@ export function createLlmProvider(config: AppEnv = env): llm.LLM {
 
   switch (config.LLM_PROVIDER) {
     case 'google': {
-      let model = (config.LLM_MODEL || 'gemini-3.5-flash').replace(/^google\//, '');
-      if (model.includes('2.5-flash')) {
-        model = 'gemini-3.5-flash';
+      let model = (config.LLM_MODEL || 'gemini-3.5-flash-lite').replace(/^google\//, '');
+      if (model.includes('2.5-flash') || model === 'gemini-3.5-flash') {
+        model = 'gemini-3.5-flash-lite';
       }
       return new google.LLM({
         model,

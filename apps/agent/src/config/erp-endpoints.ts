@@ -65,6 +65,16 @@ export const ERP_ENDPOINTS_CONFIG: Record<ErpOperationName, ErpEndpointDefinitio
     contractStatus: 'PENDING_CONTRACT',
     description: 'Consulta detalhes completos da OS incluindo cabeçalho, produtos, serviços e totais.',
   },
+  consultar_estatisticas_bancada: {
+    operation: 'consultar_estatisticas_bancada',
+    method: 'GET',
+    pathTemplate: '/ordens-servico/estatisticas',
+    isMutation: false,
+    supportsIdempotencyKey: false,
+    timeoutMs: 6000,
+    contractStatus: 'PENDING_CONTRACT',
+    description: 'Calcula rankings e agregações estatísticas das OS (produtos mais usados, serviços mais frequentes, totais e contagem por status).',
+  },
   listar_produtos: {
     operation: 'listar_produtos',
     method: 'GET',

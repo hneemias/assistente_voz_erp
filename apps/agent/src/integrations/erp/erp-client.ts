@@ -10,6 +10,7 @@ import { defaultMockStore, type ErpMockStore } from './erp-mock-adapter.ts';
 import type {
   ErpOperationName,
   ErpOperationResult,
+  EstatisticasBancada,
   EstoqueProduto,
   FiltroOS,
   FiltroProdutos,
@@ -296,6 +297,25 @@ export class ErpClient {
     return this.executeHttp<OrdemServicoDetalhada>({
       operation: 'consultar_detalhes_os',
       pathParams: { numero_os: numeroOs },
+      options,
+    });
+  }
+
+  public async consultarEstatisticasBancada(
+    filtros?: FiltroOS & { limite_ranking?: number },
+    options?: RequestExecutionOptions,
+  ): Promise<ErpOperationResult<EstatisticasBancada>> {
+    const start = Date.now();
+    if (this.mode === 'mock') {
+      return this.wrapResult(
+        'consultar_estatisticas_bancada',
+        this.mockStore.obterEstatisticasBancada(filtros),
+        start,
+      );
+    }
+    return this.executeHttp<EstatisticasBancada>({
+      operation: 'consultar_estatisticas_bancada',
+      queryParams: filtros ? { ...filtros } : undefined,
       options,
     });
   }

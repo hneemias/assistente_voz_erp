@@ -464,6 +464,132 @@ export async function executeListarTodasOs(
 }
 
 // ============================================================================
+// 3.1. consultar_estatisticas_bancada(filtros)
+// ============================================================================
+export const consultarEstatisticasBancadaSchema = z.object({
+  apenas_hoje: z
+    .boolean()
+    .nullable()
+    .optional()
+    .describe('Se true, restringe a análise apenas às ordens de serviço abertas hoje.'),
+  data: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Filtra ordens abertas em uma data específica (ex: "ontem", "hoje", "10", "10/11", "2026-11-10").'),
+  data_inicio: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data inicial para filtro por período (ex: "01/11/2026" ou "2026-11-01").'),
+  data_fim: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Data final para filtro por período (ex: "15/11/2026" ou "2026-11-15").'),
+  tipo: z
+    .enum(['todos', 'produtos', 'servicos'])
+    .nullable()
+    .optional()
+    .describe('Filtra o foco da resposta: "produtos", "servicos" ou "todos" (padrão).'),
+});
+
+export async function executeConsultarEstatisticasBancada(
+  args: z.infer<typeof consultarEstatisticasBancadaSchema>,
+  userData: SessionUserData,
+  abortSignal?: AbortSignal,
+): Promise<ToolResponse> {
+  const startTime = Date.now();
+  const filtro: FiltroOS & { limite_ranking?: number } = {
+    apenas_hoje: args.apenas_hoje ?? undefined,
+    data: args.data ?? undefined,
+    data_inicio: args.data_inicio ?? undefined,
+    data_fim: args.data_fim ?? undefined,
+    limite_ranking: 5,
+  };
+
+  try {
+    const res = await userData.erpClient.consultarEstatisticasBancada(filtro, { signal: abortSignal });
+    const durationMs = Math.max(1, Date.now() - startTime);
+
+    metrics.recordToolCall({
+      toolName: 'consultar_estatisticas_bancada',
+      durationMs,
+      outcome: 'SUCCESS',
+    });
+    logToolAudit({
+      sessionId: userData.sessionId,
+      userId: userData.userId,
+      intent: 'consultar_estatisticas_bancada',
+      toolName: 'consultar_estatisticas_bancada',
+      durationMs,
+      httpStatus: res.metadata.httpStatus,
+      operationResult: 'SUCCESS',
+      erpMode: userData.erpClient.mode,
+    });
+
+    const stats = res.data;
+    const tipo = args.tipo || 'todos';
+
+    let speechText = '';
+    const totalOS = stats.total_ordens_analisadas;
+
+    if (totalOS === 0) {
+      speechText = 'Nenhuma ordem de serviço foi encontrada no período selecionado para análise estatística.';
+    } else if (tipo === 'produtos') {
+      if (stats.top_produtos.length === 0) {
+        speechText = `Foram analisadas ${totalOS} ordens, mas nenhuma delas possui produtos cadastrados.`;
+      } else {
+        const top1 = stats.top_produtos[0]!;
+        const top2 = stats.top_produtos[1];
+        speechText = `O produto que mais aparece nas ordens é ${top1.nome}, presente em ${top1.total_ordens} ${top1.total_ordens === 1 ? 'ordem' : 'ordens'}, com um total de ${top1.total_quantidade} unidades.`;
+        if (top2) {
+          speechText += ` Em segundo lugar vem ${top2.nome}, presente em ${top2.total_ordens} ${top2.total_ordens === 1 ? 'ordem' : 'ordens'}, com ${top2.total_quantidade} unidades.`;
+        }
+      }
+    } else if (tipo === 'servicos') {
+      if (stats.top_servicos.length === 0) {
+        speechText = `Foram analisadas ${totalOS} ordens, mas nenhuma delas possui serviços cadastrados.`;
+      } else {
+        const top1 = stats.top_servicos[0]!;
+        const top2 = stats.top_servicos[1];
+        speechText = `O serviço que mais aparece nas ordens é ${top1.nome}, realizado em ${top1.total_ordens} ${top1.total_ordens === 1 ? 'ordem' : 'ordens'}.`;
+        if (top2) {
+          speechText += ` Em segundo lugar vem ${top2.nome}, realizado em ${top2.total_ordens} ${top2.total_ordens === 1 ? 'ordem' : 'ordens'}.`;
+        }
+      }
+    } else {
+      const partes: string[] = [`Em um total de ${totalOS} ordens analisadas:`];
+      if (stats.top_produtos.length > 0) {
+        const p1 = stats.top_produtos[0]!;
+        partes.push(`o produto mais frequente é ${p1.nome}, com ${p1.total_quantidade} unidades em ${p1.total_ordens} ordens;`);
+      }
+      if (stats.top_servicos.length > 0) {
+        const s1 = stats.top_servicos[0]!;
+        partes.push(`e o serviço mais realizado é ${s1.nome}, presente em ${s1.total_ordens} ordens.`);
+      }
+      speechText = partes.join(' ');
+    }
+
+    return {
+      status: 'SUCCESS',
+      messageForSpeech: speechText,
+      data: stats,
+      erpMode: userData.erpClient.mode,
+      activeOsNumber: userData.activeOsNumber,
+    };
+  } catch (err) {
+    return handleQueryError(
+      err,
+      'consultar_estatisticas_bancada',
+      'consultar_estatisticas_bancada',
+      userData,
+      startTime,
+    );
+  }
+}
+
+// ============================================================================
 // 4. consultar_detalhes_os(numero_os)
 // ============================================================================
 export const consultarDetalhesOsSchema = z.object({
@@ -1153,6 +1279,14 @@ export function createQueryTools() {
       parameters: listarTodasOsSchema,
       execute: async (args, { ctx, abortSignal }: llm.ToolOptions<SessionUserData>) =>
         executeListarTodasOs(args, ctx.userData, abortSignal),
+    }),
+    llm.tool({
+      name: 'consultar_estatisticas_bancada',
+      description:
+        'Calcula rankings e agregações estatísticas da bancada: qual produto mais aparece, qual serviço mais aparece, itens mais frequentes, quantidades totais e faturamento. USE SEMPRE esta ferramenta quando o operador perguntar "qual produto mais aparece?", "qual serviço mais aparece?", "quais os mais vendidos?", "resumo da bancada", "estatísticas das ordens", em vez de chamar ferramentas individuais para cada OS.',
+      parameters: consultarEstatisticasBancadaSchema,
+      execute: async (args, { ctx, abortSignal }: llm.ToolOptions<SessionUserData>) =>
+        executeConsultarEstatisticasBancada(args, ctx.userData, abortSignal),
     }),
     llm.tool({
       name: 'consultar_detalhes_os',

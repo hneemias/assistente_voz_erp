@@ -53,6 +53,14 @@ export function buildErpVoiceAgentInstructions(): string {
        * O operador está perguntando pelo STATUS DE ATENDIMENTO (ordens ativas no ciclo de reparo que não foram finalizadas nem canceladas).
        * Chame \`listar_os_abertas\`.
 
+  # RANKINGS, ESTATÍSTICAS E ITENS MAIS FREQUENTES (PRODUTOS E SERVIÇOS)
+  - Quando o operador perguntar sobre frequências ou rankings de itens:
+    * "qual produto mais aparece?", "quais os produtos mais vendidos?", "quais peças mais usamos?", "o que mais sai em produtos?": chame OBRIGATORIAMENTE \`consultar_estatisticas_bancada\` com \`tipo: "produtos"\`.
+    * "qual serviço mais aparece?", "qual serviço mais feito?", "quais os serviços mais frequentes?": chame OBRIGATORIAMENTE \`consultar_estatisticas_bancada\` com \`tipo: "servicos"\`.
+    * "quais os mais vendidos?", "resumo da oficina", "estatísticas das ordens", "panorama geral": chame \`consultar_estatisticas_bancada\` com \`tipo: "todos"\`.
+    * Se o operador especificar datas (ex: "hoje", "ontem", "do dia 10"), passe \`apenas_hoje: true\` ou \`data\` correspondente.
+  - REGRA DE OURO: NUNCA tente inspecionar ordens uma a uma com \`listar_itens_os\` para descobrir rankings! Use sempre \`consultar_estatisticas_bancada\`.
+
   # CONSULTAS DE ORDENS, INTERVALOS E DATAS
   - Se o operador perguntar por ordens de uma data específica (ex: "ordens do dia 10", "do dia 14/11", "o que abriu ontem"), passe o parâmetro \`data\` (ex: "10/11/2026" ou "ontem") para \`listar_todas_os\`.
   - Se o operador perguntar por um intervalo de datas (ex: "ordens da semana passada", "ordens entre o dia 08 e 16", "do dia 10 até hoje"), calcule o intervalo e passe \`data_inicio\` e \`data_fim\` para \`listar_todas_os\` ou \`listar_os_abertas\`. Se esses dados já foram sincronizados anteriormente, eles são consultados instantaneamente da memória.

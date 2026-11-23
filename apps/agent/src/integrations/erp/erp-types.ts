@@ -195,11 +195,30 @@ export interface FiltroProdutos {
   limite?: number;
 }
 
+export interface ItemRanking {
+  id?: string;
+  codigo?: string;
+  nome: string;
+  total_quantidade: number;
+  total_ordens: number;
+  total_reais: number;
+}
+
+export interface EstatisticasBancada {
+  total_ordens_analisadas: number;
+  valor_total_faturamento: number;
+  status_contagem: Record<string, number>;
+  top_produtos: ItemRanking[];
+  top_servicos: ItemRanking[];
+  periodo_descricao?: string;
+}
+
 export type ErpOperationName =
   | 'consultar_os'
   | 'listar_os_abertas'
   | 'listar_todas_os'
   | 'consultar_detalhes_os'
+  | 'consultar_estatisticas_bancada'
   | 'listar_produtos'
   | 'buscar_produto_por_nome'
   | 'consultar_produto_por_codigo'

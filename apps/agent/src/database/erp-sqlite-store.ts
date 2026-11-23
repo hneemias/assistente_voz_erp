@@ -10,10 +10,12 @@ import {
   parseDateFilterToIso,
 } from '../utils/timezone.ts';
 import type {
+  EstatisticasBancada,
   EstoqueProduto,
   FiltroOS,
   FiltroProdutos,
   ItemProdutoOS,
+  ItemRanking,
   ItemServicoOS,
   OrdemServicoDetalhada,
   OrdemServicoResumo,
@@ -564,6 +566,105 @@ export class ErpSqliteStore {
     `).all() as any[];
 
     return this.applyFiltrosInMemory(rows, filtros).map((r) => this.rowToResumo(r));
+  }
+
+  public obterEstatisticasBancada(filtros?: FiltroOS & { limite_ranking?: number }): EstatisticasBancada {
+    const ordens = this.listarTodasOS(filtros);
+    const limiteRanking = filtros?.limite_ranking || 5;
+
+    const produtosMap = new Map<
+      string,
+      { nome: string; codigo: string; total_quantidade: number; total_reais: number; os_set: Set<string> }
+    >();
+    const servicosMap = new Map<
+      string,
+      { nome: string; codigo: string; total_quantidade: number; total_reais: number; os_set: Set<string> }
+    >();
+    const statusContagem: Record<string, number> = {};
+    let valorTotal = 0;
+
+    for (const resumo of ordens) {
+      statusContagem[resumo.status] = (statusContagem[resumo.status] || 0) + 1;
+      valorTotal += resumo.valor_total;
+
+      const rawRow = this.db
+        .prepare(`SELECT produtos_json, servicos_json FROM ordens_servico WHERE numero_os = ?`)
+        .get(resumo.numero_os) as any;
+      if (!rawRow) continue;
+
+      let prods: ItemProdutoOS[] = [];
+      let servs: ItemServicoOS[] = [];
+      try {
+        prods = JSON.parse(rawRow.produtos_json || '[]');
+      } catch {}
+      try {
+        servs = JSON.parse(rawRow.servicos_json || '[]');
+      } catch {}
+
+      for (const prod of prods) {
+        const key = normalizeText(prod.nome) || prod.produto_id || 'produto';
+        if (!produtosMap.has(key)) {
+          produtosMap.set(key, {
+            nome: prod.nome,
+            codigo: prod.codigo || '',
+            total_quantidade: 0,
+            total_reais: 0,
+            os_set: new Set(),
+          });
+        }
+        const entry = produtosMap.get(key)!;
+        entry.total_quantidade += Number(prod.quantidade || 1);
+        entry.total_reais += Number(prod.subtotal || 0);
+        entry.os_set.add(resumo.numero_os);
+      }
+
+      for (const serv of servs) {
+        const key = normalizeText(serv.descricao) || serv.servico_id || 'servico';
+        if (!servicosMap.has(key)) {
+          servicosMap.set(key, {
+            nome: serv.descricao,
+            codigo: serv.codigo || '',
+            total_quantidade: 0,
+            total_reais: 0,
+            os_set: new Set(),
+          });
+        }
+        const entry = servicosMap.get(key)!;
+        entry.total_quantidade += Number(serv.quantidade || 1);
+        entry.total_reais += Number(serv.subtotal || 0);
+        entry.os_set.add(resumo.numero_os);
+      }
+    }
+
+    const topProdutos: ItemRanking[] = Array.from(produtosMap.values())
+      .map((p) => ({
+        nome: p.nome,
+        codigo: p.codigo,
+        total_quantidade: p.total_quantidade,
+        total_ordens: p.os_set.size,
+        total_reais: Math.round(p.total_reais * 100) / 100,
+      }))
+      .sort((a, b) => b.total_ordens - a.total_ordens || b.total_quantidade - a.total_quantidade)
+      .slice(0, limiteRanking);
+
+    const topServicos: ItemRanking[] = Array.from(servicosMap.values())
+      .map((s) => ({
+        nome: s.nome,
+        codigo: s.codigo,
+        total_quantidade: s.total_quantidade,
+        total_ordens: s.os_set.size,
+        total_reais: Math.round(s.total_reais * 100) / 100,
+      }))
+      .sort((a, b) => b.total_ordens - a.total_ordens || b.total_quantidade - a.total_quantidade)
+      .slice(0, limiteRanking);
+
+    return {
+      total_ordens_analisadas: ordens.length,
+      valor_total_faturamento: Math.round(valorTotal * 100) / 100,
+      status_contagem: statusContagem,
+      top_produtos: topProdutos,
+      top_servicos: topServicos,
+    };
   }
 
   private applyFiltrosInMemory(rows: any[], filtros?: FiltroOS): any[] {

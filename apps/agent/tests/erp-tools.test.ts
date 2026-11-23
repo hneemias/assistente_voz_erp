@@ -6,6 +6,7 @@ import {
   executeConsultarOs,
   executeListarOsAbertas,
   executeListarTodasOs,
+  executeConsultarEstatisticasBancada,
   executeListarProdutos,
   executeBuscarProdutoPorNome,
   executeListarServicos,
@@ -537,6 +538,30 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
       expect(res.status).toBe('NOT_FOUND');
       expect(res.messageForSpeech).toContain('Não encontrei a OS 999999 no histórico carregado');
       expect(res.messageForSpeech).toContain('Deseja que eu faça uma busca e sincronize direto com o sistema Inovar Fiscal?');
+    });
+
+    it('Calcula ranking e estatísticas de produtos e serviços da bancada com consultar_estatisticas_bancada', async () => {
+      const userData = createSessionUserData({ erpClient });
+      // Consulta com tipo "produtos"
+      const resProds = await executeConsultarEstatisticasBancada({ tipo: 'produtos' }, userData);
+      expect(resProds.status).toBe('SUCCESS');
+      expect(resProds.data).toBeDefined();
+      const statsProds = resProds.data as any;
+      expect(statsProds.total_ordens_analisadas).toBeGreaterThan(0);
+      expect(statsProds.top_produtos.length).toBeGreaterThan(0);
+      expect(resProds.messageForSpeech).toContain('O produto que mais aparece nas ordens é');
+
+      // Consulta com tipo "servicos"
+      const resServs = await executeConsultarEstatisticasBancada({ tipo: 'servicos' }, userData);
+      expect(resServs.status).toBe('SUCCESS');
+      const statsServs = resServs.data as any;
+      expect(statsServs.top_servicos.length).toBeGreaterThan(0);
+      expect(resServs.messageForSpeech).toContain('O serviço que mais aparece nas ordens é');
+
+      // Consulta geral (tipo "todos")
+      const resTodos = await executeConsultarEstatisticasBancada({ tipo: 'todos' }, userData);
+      expect(resTodos.status).toBe('SUCCESS');
+      expect(resTodos.messageForSpeech).toContain('Em um total de');
     });
   });
 });

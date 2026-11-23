@@ -32,7 +32,7 @@ const envSchema = z.object({
   // AI Providers
   LLM_PROVIDER: z.enum(['livekit-inference', 'google', 'openai']).default('livekit-inference'),
   LLM_API_KEY: z.string().default(''),
-  LLM_MODEL: z.string().default('gemini-3.5-flash'),
+  LLM_MODEL: z.string().default('gemini-3.5-flash-lite'),
 
   STT_PROVIDER: z.enum(['livekit-inference', 'deepgram', 'openai']).default('deepgram'),
   STT_API_KEY: z.string().default(''),
