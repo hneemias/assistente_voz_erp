@@ -17,6 +17,7 @@ import { env } from './config/env.ts';
 import { createSessionUserData } from './services/context-manager.ts';
 import { attachSessionToIdleNotifier } from './services/idle-notifier.ts';
 import type { SessionUserData } from './types/session-types.ts';
+import { getGreetingSaoPaulo } from './utils/timezone.ts';
 import http from 'node:http';
 import { createSessionLogger, logger } from './utils/logger.ts';
 
@@ -118,10 +119,10 @@ export default defineAgent({
       sessionLog.warn({ err }, 'Não foi possível publicar atributos iniciais do participante');
     }
 
-    // Saudação operacional curta ao conectar
+    // Saudação operacional curta com saudação temporal correta (Bom dia / Boa tarde / Boa noite)
+    const greeting = getGreetingSaoPaulo();
     session.generateReply({
-      instructions:
-        'Cumprimente o operador de bancada de forma muito breve em português brasileiro (máximo uma frase curta, como "Olá! Assistente do ERP pronto na bancada, qual OS vamos consultar?").',
+      instructions: `Cumprimente o operador de bancada com "${greeting}!" de forma muito breve em português brasileiro (máximo uma frase curta, por exemplo: "${greeting}! Assistente do ERP pronto na bancada, qual OS vamos consultar?").`,
     });
   },
 

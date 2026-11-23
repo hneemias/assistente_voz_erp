@@ -2,14 +2,18 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 
-# Instala ferramentas essenciais do sistema
+# Instala ferramentas essenciais do sistema e fuso horário de Brasília
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     make \
     g++ \
     curl \
     ca-certificates \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
+
+ENV TZ=America/Sao_Paulo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Garante que durante o build o npm instale todos os devDependencies para compilação
 ENV NODE_ENV=development

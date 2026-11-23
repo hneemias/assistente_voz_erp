@@ -219,22 +219,22 @@ export const listarOsAbertasSchema = z.object({
     .boolean()
     .nullable()
     .optional()
-    .describe('Se verdadeiro, lista apenas ordens abertas na data de hoje.'),
+    .describe('Se verdadeiro, lista apenas ordens abertas na data de hoje (horário de Brasília).'),
   data: z
     .string()
     .nullable()
     .optional()
-    .describe('Data específica para filtrar as ordens (ex: "hoje", "16/11/2026", "10/11/2026").'),
+    .describe('Data específica para filtrar as ordens (ex: "hoje", "ontem", "16/11/2026", "10/11/2026") no fuso horário de Brasília.'),
   data_inicio: z
     .string()
     .nullable()
     .optional()
-    .describe('Data inicial para filtrar ordens de um intervalo no formato DD/MM/AAAA.'),
+    .describe('Data inicial para filtrar ordens de um intervalo no formato DD/MM/AAAA (horário de Brasília).'),
   data_fim: z
     .string()
     .nullable()
     .optional()
-    .describe('Data final para filtrar ordens de um intervalo no formato DD/MM/AAAA.'),
+    .describe('Data final para filtrar ordens de um intervalo no formato DD/MM/AAAA (horário de Brasília).'),
 });
 
 export async function executeListarOsAbertas(
@@ -359,22 +359,22 @@ export const listarTodasOsSchema = z.object({
     .boolean()
     .nullable()
     .optional()
-    .describe('Se verdadeiro, filtra apenas ordens com data de hoje.'),
+    .describe('Se verdadeiro, filtra apenas ordens com data de hoje (horário de Brasília).'),
   data: z
     .string()
     .nullable()
     .optional()
-    .describe('Data específica para filtrar as ordens (ex: "hoje", "16/11/2026", "10/11/2026").'),
+    .describe('Data específica para filtrar as ordens (ex: "hoje", "ontem", "16/11/2026", "10/11/2026") no fuso horário de Brasília.'),
   data_inicio: z
     .string()
     .nullable()
     .optional()
-    .describe('Data inicial para filtrar ordens de um intervalo no formato DD/MM/AAAA.'),
+    .describe('Data inicial para filtrar ordens de um intervalo no formato DD/MM/AAAA (horário de Brasília).'),
   data_fim: z
     .string()
     .nullable()
     .optional()
-    .describe('Data final para filtrar ordens de um intervalo no formato DD/MM/AAAA.'),
+    .describe('Data final para filtrar ordens de um intervalo no formato DD/MM/AAAA (horário de Brasília).'),
 });
 
 export async function executeListarTodasOs(

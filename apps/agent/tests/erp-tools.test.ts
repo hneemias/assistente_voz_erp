@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ErpMockStore } from '../src/integrations/erp/erp-mock-adapter.ts';
 import { ErpClient } from '../src/integrations/erp/erp-client.ts';
 import { createSessionUserData, advanceUserTurn } from '../src/services/context-manager.ts';
@@ -31,6 +31,10 @@ describe('Suíte de Testes Automatizados dos 10 Cenários Operacionais do ERP', 
   beforeEach(() => {
     mockStore = new ErpMockStore();
     erpClient = new ErpClient({ mode: 'mock', mockStore });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ jobId: 'job-mock-test', status: 'PENDING' }),
+    }));
   });
 
   // CENÁRIO 1: Usuário pergunta o status da OS 3030. Esperado: consultar_os é chamada com 3030.

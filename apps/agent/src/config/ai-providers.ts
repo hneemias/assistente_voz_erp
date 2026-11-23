@@ -25,12 +25,14 @@ export function createLlmProvider(config: AppEnv = env): llm.LLM {
   const apiKey = config.LLM_API_KEY || undefined;
 
   switch (config.LLM_PROVIDER) {
-    case 'google':
+    case 'google': {
+      const model = (config.LLM_MODEL || 'gemini-2.5-flash').replace(/^google\//, '');
       return new google.LLM({
-        model: config.LLM_MODEL || 'gemini-2.5-flash',
-        apiKey: apiKey ?? process.env.GOOGLE_API_KEY,
+        model,
+        apiKey: apiKey ?? process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY,
         temperature: 0.2,
       });
+    }
 
     case 'openai':
       return new openai.LLM({

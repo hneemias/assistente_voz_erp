@@ -2,6 +2,7 @@ import { env } from '../config/env.ts';
 import { defaultMockStore } from '../integrations/erp/erp-mock-adapter.ts';
 import { logger } from '../utils/logger.ts';
 import { queueIdleAnnouncement } from './idle-notifier.ts';
+import { formatDateSaoPaulo } from '../utils/timezone.ts';
 
 export interface InovarFiscalJobResponse {
   id: string;
@@ -37,10 +38,7 @@ export class InovarFiscalSyncService {
   }
 
   private formatDateBrazilian(date: Date): string {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+    return formatDateSaoPaulo(date);
   }
 
   public async triggerSync(options?: {

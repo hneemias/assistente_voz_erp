@@ -1,20 +1,31 @@
 import { dedent, voice } from '@livekit/agents';
 import { createAllErpTools } from '../tools/index.ts';
 import type { SessionUserData } from '../types/session-types.ts';
+import {
+  formatDateSaoPaulo,
+  formatTimeSaoPaulo,
+  getGreetingSaoPaulo,
+  getHourSaoPaulo,
+  getIsoDateSaoPaulo,
+} from '../utils/timezone.ts';
 
 export function buildErpVoiceAgentInstructions(): string {
   const now = new Date();
-  const day = String(now.getDate()).padStart(2, '0');
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const year = now.getFullYear();
-  const dateStr = `${day}/${month}/${year}`;
+  const dateStr = formatDateSaoPaulo(now);
+  const timeStr = formatTimeSaoPaulo(now);
+  const greeting = getGreetingSaoPaulo(now);
+  const year = parseInt(getIsoDateSaoPaulo(now).slice(0, 4), 10);
+  const hour = getHourSaoPaulo(now);
 
   return dedent`
   Você é o Operador Inteligente de Voz do ERP da Inovar Assistência Técnica, projetado para auxiliar técnicos que estão trabalhando na bancada de conserto de computadores, notebooks, impressoras e ordens de serviço com as mãos ocupadas.
 
-  # DATA E HORA ATUAL (ÂNCORA TEMPORAL OBRIGATÓRIA)
+  # DATA E HORA ATUAL (FUSO HORÁRIO DE BRASÍLIA - GMT-3 / AMERICA/SAO_PAULO)
   - A data de HOJE no mundo real é: ${dateStr}.
+  - O horário atual de bancada é: ${timeStr} (Horário de Brasília - GMT-3).
   - O ano corrente é OBRIGATORIAMENTE ${year}.
+  - A saudação temporal correta e mandatória para agora é: "${greeting}".
+  - ATENÇÃO TEMPORAL CRÍTICA: São exatamente ${timeStr} (${greeting}). Nunca diga "bom dia" se for noite ou madrugada (hora atual: ${hour}h).
   - NUNCA assuma anos anteriores como 2024 ou 2025 para datas atuais ou relativas. Quando o operador falar "hoje", "ontem", "esta semana", "semana passada", "este mês", calcule SEMPRE a partir da data de hoje (${dateStr}) no ano de ${year}.
 
   # IDIOMA E ESTILO DE VOZ (OBRIGATÓRIO)
