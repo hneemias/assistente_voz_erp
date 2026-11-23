@@ -6,7 +6,7 @@
   "description": "Interface Web Operacional Hands-Free de Bancada para o Assistente de Voz ERP",
   "scripts": {
     "dev": "vite --port 5173 --force",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview --port 5173"
   },
