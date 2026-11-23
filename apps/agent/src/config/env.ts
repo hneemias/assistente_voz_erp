@@ -32,20 +32,27 @@ const envSchema = z.object({
   // AI Providers
   LLM_PROVIDER: z.enum(['livekit-inference', 'google', 'openai']).default('livekit-inference'),
   LLM_API_KEY: z.string().default(''),
-  LLM_MODEL: z.string().default('google/gemini-2.5-flash'),
+  LLM_MODEL: z.string().default('gemini-3.5-flash'),
 
-  STT_PROVIDER: z.enum(['livekit-inference', 'deepgram', 'openai']).default('livekit-inference'),
+  STT_PROVIDER: z.enum(['livekit-inference', 'deepgram', 'openai']).default('deepgram'),
   STT_API_KEY: z.string().default(''),
-  STT_MODEL: z.string().default('deepgram/nova-3'),
+  STT_MODEL: z.string().default('nova-3'),
   STT_LANGUAGE: z.string().default('pt-BR'),
 
   TTS_PROVIDER: z
     .enum(['livekit-inference', 'cartesia', 'elevenlabs', 'google', 'openai'])
-    .default('livekit-inference'),
+    .default('cartesia'),
   TTS_API_KEY: z.string().default(''),
-  TTS_MODEL: z.string().default('inworld/inworld-tts-2'),
-  TTS_VOICE: z.string().default('Heitor'), // Voz nativa brasileira: Heitor (pt-BR)
+  TTS_MODEL: z.string().default('sonic-3'),
+  TTS_VOICE: z.string().default('b0f46533-d4bb-493f-a26f-a99e1f2e86e3'), // Voz Cartesia Heitor (pt-BR)
   TTS_LANGUAGE: z.string().default('pt-BR'),
+
+  // Chaves diretas para provedores e fallbacks
+  DEEPGRAM_API_KEY: z.string().default(''),
+  GROQ_API_KEY: z.string().default(''),
+  CARTESIA_API_KEY: z.string().default(''),
+  ELEVEN_API_KEY: z.string().default(''),
+  ELEVENLABS_API_KEY: z.string().default(''),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
