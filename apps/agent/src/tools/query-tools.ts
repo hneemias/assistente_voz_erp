@@ -1,7 +1,7 @@
 import { llm } from '@livekit/agents';
 import { z } from 'zod';
 import { ErpError } from '../integrations/erp/erp-errors.ts';
-import type { StatusOS } from '../integrations/erp/erp-types.ts';
+import type { FiltroOS, StatusOS } from '../integrations/erp/erp-types.ts';
 import {
   resolveTargetOsNumber,
   setActiveOsContext,
@@ -151,8 +151,8 @@ export async function executeConsultarOs(
     const os = res.data;
     const equipInfo =
       os.veiculo_equipamento &&
-      os.veiculo_equipamento !== 'Geral' &&
-      os.veiculo_equipamento !== 'Equipamento não especificado'
+        os.veiculo_equipamento !== 'Geral' &&
+        os.veiculo_equipamento !== 'Equipamento não especificado'
         ? ` referente a ${os.veiculo_equipamento}`
         : '';
     return {
@@ -288,8 +288,8 @@ export async function executeListarOsAbertas(
           .map((o) => {
             const equip =
               o.veiculo_equipamento &&
-              o.veiculo_equipamento !== 'Geral' &&
-              o.veiculo_equipamento !== 'Equipamento não especificado'
+                o.veiculo_equipamento !== 'Geral' &&
+                o.veiculo_equipamento !== 'Equipamento não especificado'
                 ? ` (${o.veiculo_equipamento})`
                 : '';
             return `OS ${o.numero_os} de ${o.cliente_nome}${equip}, total ${o.valor_total.toFixed(2)} reais`;
@@ -427,8 +427,8 @@ export async function executeListarTodasOs(
           .map((o) => {
             const equip =
               o.veiculo_equipamento &&
-              o.veiculo_equipamento !== 'Geral' &&
-              o.veiculo_equipamento !== 'Equipamento não especificado'
+                o.veiculo_equipamento !== 'Geral' &&
+                o.veiculo_equipamento !== 'Equipamento não especificado'
                 ? ` (${o.veiculo_equipamento})`
                 : '';
             return `OS ${o.numero_os} de ${o.cliente_nome}${equip}, status ${formatStatusLabel(o.status)}, total ${o.valor_total.toFixed(2)} reais`;
@@ -634,8 +634,8 @@ export async function executeConsultarDetalhesOs(
     const d = res.data;
     const equipInfo =
       d.veiculo_equipamento &&
-      d.veiculo_equipamento !== 'Geral' &&
-      d.veiculo_equipamento !== 'Equipamento não especificado'
+        d.veiculo_equipamento !== 'Geral' &&
+        d.veiculo_equipamento !== 'Equipamento não especificado'
         ? `, referente a ${d.veiculo_equipamento}`
         : '';
     const obsSnippet = d.observacoes ? ` Observação: ${d.observacoes.split('\n')[0]}.` : '';
@@ -778,9 +778,9 @@ export async function executeListarServicos(
       servicosLista.length === 0
         ? 'Nenhum serviço encontrado com esse termo.'
         : `Temos ${servicosLista.length} serviços cadastrados na assistência: ` +
-          servicosLista
-            .map((s) => `código ${s.codigo} - ${s.descricao} (${s.valor_padrao.toFixed(2)} reais)`)
-            .join('; ');
+        servicosLista
+          .map((s) => `código ${s.codigo} - ${s.descricao} (${s.valor_padrao.toFixed(2)} reais)`)
+          .join('; ');
 
     return {
       status: 'SUCCESS',
@@ -843,7 +843,7 @@ export async function executeBuscarServicoPorNome(
         srvs.length === 1
           ? `Serviço encontrado: código ${srvs[0]!.codigo} - ${srvs[0]!.descricao}, valor padrão de ${srvs[0]!.valor_padrao.toFixed(2)} reais.`
           : `Foram encontrados ${srvs.length} serviços compatíveis: ` +
-            srvs.map((s) => `código ${s.codigo} (${s.descricao}, ${s.valor_padrao.toFixed(2)} reais)`).join('; '),
+          srvs.map((s) => `código ${s.codigo} (${s.descricao}, ${s.valor_padrao.toFixed(2)} reais)`).join('; '),
       data: { quantidade: srvs.length, servicos: srvs },
       erpMode: userData.erpClient.mode,
       activeOsNumber: userData.activeOsNumber,
@@ -903,12 +903,12 @@ export async function executeBuscarProdutoPorNome(
         prods.length === 1
           ? `Produto encontrado: código ${prods[0]!.codigo} - ${prods[0]!.nome}, preço ${prods[0]!.preco_venda.toFixed(2)} reais por ${prods[0]!.unidade}, estoque atual de ${prods[0]!.estoque_atual} ${prods[0]!.unidade}.`
           : `Foram encontrados ${prods.length} produtos compatíveis com '${args.nome}': ` +
-            prods
-              .map(
-                (p) =>
-                  `código ${p.codigo} (${p.nome}, ${p.preco_venda.toFixed(2)} reais por ${p.unidade}, estoque: ${p.estoque_atual})`,
-              )
-              .join('; '),
+          prods
+            .map(
+              (p) =>
+                `código ${p.codigo} (${p.nome}, ${p.preco_venda.toFixed(2)} reais por ${p.unidade}, estoque: ${p.estoque_atual})`,
+            )
+            .join('; '),
       data: { quantidade: prods.length, produtos: prods },
       erpMode: userData.erpClient.mode,
       activeOsNumber: userData.activeOsNumber,
@@ -1148,17 +1148,17 @@ export async function executeListarItensOs(
       produtos.length === 0
         ? 'nenhum produto'
         : produtos
-            .map(
-              (p) =>
-                `${p.quantidade} ${p.unidade} de ${p.nome} (item ${p.item_id}, subtotal ${p.subtotal.toFixed(2)} reais)`,
-            )
-            .join(', ');
+          .map(
+            (p) =>
+              `${p.quantidade} ${p.unidade} de ${p.nome} (item ${p.item_id}, subtotal ${p.subtotal.toFixed(2)} reais)`,
+          )
+          .join(', ');
     const srvDesc =
       servicos.length === 0
         ? 'nenhum serviço'
         : servicos
-            .map((s) => `${s.descricao} (item ${s.item_id}, ${s.subtotal.toFixed(2)} reais)`)
-            .join(', ');
+          .map((s) => `${s.descricao} (item ${s.item_id}, ${s.subtotal.toFixed(2)} reais)`)
+          .join(', ');
 
     return {
       status: 'SUCCESS',
